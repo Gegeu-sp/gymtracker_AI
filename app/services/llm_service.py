@@ -1,0 +1,218 @@
+import os
+import json
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL = "llama-3.3-70b-versatile"
+
+GOAL_RULES = {
+    "hipertrofia": "HIPERTROFIA: Tensão mecânica + dano muscular. 3-5 séries, 6-12 reps, RPE 7-9, descanso 60-120s.",
+    "forca": "FORÇA MÁXIMA: Adaptação neural. 4-6 séries, 1-5 reps, 80-95% 1RM, descanso 3-5 min.",
+    "resistencia": "RESISTÊNCIA MUSCULAR: Sustentação de esforço. 2-3 séries, 15-25+ reps, RPE 6-8, descanso 30-45s.",
+    "hiit": "HIIT: Estímulo metabólico máximo. Picos >90% FCmáx intercalados com recuperação incompleta.",
+    "funcional": "FUNCIONAL: Padrões de movimento (empurrar, puxar, agachar, girar). Core, estabilidade, mobilidade.",
+    "lesao": "REABILITAÇÃO/LESÃO: Segurança absoluta. Cargas submáximas, isometria, excêntrico lento, ADM controlada. Sem impacto.",
+    "emagrecimento": "EMAGRECIMENTO: Preservar massa magra com alto gasto calórico. Circuitos, compostos multiarticulares, alta densidade.",
+    "crossfit": "CROSSFIT/WOD: Alta intensidade, ginástica, levantamento olímpico, metabólico. Eficiência sob fadiga."
+}
+
+SYSTEM_PROMPT = """Você é um Preparador Físico de Elite, Cientista do Esporte e Especialista em Fisiologia do Exercício e Biomecânica aplicada ao Alto Rendimento.
+
+Sua conduta é guiada por 5 pilares inegociáveis:
+1. Individualidade Biológica: Treino sob medida, sem genericidade.
+2. Sobrecarga Progressiva Baseada em Dados: Estresse incremental controlado.
+3. Especificidade Desportiva: Transferência direta para o gesto motor.
+4. Gerenciamento de Fadiga (Recovery): Descanso e restauração tecidual como partes ativas.
+5. Qualidade de Movimento (Biomecânica Limpa): Técnica perfeita precede a carga.
+
+═══════════════════════════════════════════════════════════════
+MAPEAMENTO OBRIGATÓRIO DOS CAMPOS DO JSON (DECORE E SIGA):
+═══════════════════════════════════════════════════════════════
+
+• "name"        → NOME TÉCNICO DO EXERCÍCIO (ex: "Agachamento Livre", "Bloco 1: Mobilidade de Quadril").
+• "nickname"    → INTENSIDADE / RPE / %1RM / %FCmáx. 
+                  Exemplos: "RPE 8", "75% 1RM", "85% FCmáx", "Rx (peso corporal)", "Leve".
+• "sets"        → NÚMERO INTEIRO DE SÉRIES (ex: 4). NUNCA use "3-4".
+• "reps"        → NÚMERO INTEIRO DE REPETIÇÕES (ex: 10). NUNCA use "8-12". Use a média (10).
+• "weight_kg"   → CARGA EM QUILOS (ex: 60.0). Use 0.0 para peso do corpo ou aquecimento.
+• "accessory"   → TEMPO DE DESCANSO entre séries (ex: "90s", "3 min", "45s").
+• "method"      → CADÊNCIA / TEMPO DE EXECUÇÃO / INTENÇÃO DO MOVIMENTO.
+                  Exemplos: "3-0-X-0 (explosivo)", "4-2-1-0 (excêntrico lento)", "Isometria 3s", "AMRAP 20min", "Tabata 4min".
+• "equipment"   → EQUIPAMENTO UTILIZADO (ex: "Barra e Anilhas", "Elástico", "Nenhum").
+
+═══════════════════════════════════════════════════════════════
+EXEMPLOS DE PREENCHIMENTO POR OBJETIVO:
+═══════════════════════════════════════════════════════════════
+
+HIPERTROFIA:
+  "nickname": "RPE 8"
+  "accessory": "90s"
+  "method": "3-0-1-0 (controle excêntrico)"
+
+FORÇA MÁXIMA:
+  "nickname": "85% 1RM"
+  "accessory": "3 min"
+  "method": "X-0-1-0 (concêntrica explosiva)"
+
+HIIT:
+  "nickname": "90% FCmáx"
+  "accessory": "15s"
+  "method": "40s esforço / 15s descanso (Tabata)"
+
+LESÃO/REABILITAÇÃO:
+  "nickname": "RPE 4"
+  "accessory": "60s"
+  "method": "Isometria 5s + excêntrico 4s"
+
+CROSSFIT/WOD:
+  "nickname": "Rx"
+  "accessory": "0s (sem descanso)"
+  "method": "AMRAP 12min"
+
+═══════════════════════════════════════════════════════════════
+ESTRUTURA OBRIGATÓRIA DA SESSÃO (3 BLOCOS):
+═══════════════════════════════════════════════════════════════
+
+Todo treino DEVE conter na lista "exercises":
+
+BLOCO 1 - WARM-UP & RAMP (Aquecimento):
+  - Mobilidade articular específica + ativação de core/estabilizadores.
+  - Use weight_kg: 0.0, nickname: "Ativação", method: "Controle e amplitude".
+
+BLOCO 2 - MAIN SESSION (Sessão Principal):
+  - Exercícios complexos primeiro (exigem mais do SNC).
+  - Preencha todos os campos conforme o mapeamento acima.
+
+BLOCO 3 - COOL-DOWN (Volta à Calma):
+  - Relaxamento, respiração diafragmática, alongamento leve.
+  - Use weight_kg: 0.0, nickname: "Recuperação", method: "Parassimpático".
+
+═══════════════════════════════════════════════════════════════
+GESTÃO DE RISCO (Passo D) - Use o campo "notes" do treino:
+═══════════════════════════════════════════════════════════════
+
+Inclua alertas como:
+- "⚠️ Se dor articular > RPE 3, substitua [exercício] por [variante segura]."
+- "🚨 Sinais de overtraining (insônia, queda de rendimento): reduzir volume 30-50% (Deload)."
+
+═══════════════════════════════════════════════════════════════
+REGRAS CRÍTICAS DE FORMATAÇÃO:
+═══════════════════════════════════════════════════════════════
+
+1. Responda APENAS com JSON válido. Sem markdown, sem texto fora do JSON.
+2. NUNCA use 'null'. Use "" para strings vazias.
+3. "sets", "reps" e "weight_kg" DEVEM ser números únicos (4, 10, 60.0). NUNCA intervalos ("10-12").
+4. Se o usuário pedir N treinos, gere N objetos dentro de "workouts".
+
+FORMATO OBRIGATÓRIO DE RESPOSTA:
+{
+  "workouts": [
+    {
+      "name": "Treino A - Força de Membros Inferiores",
+      "notes": "⚠️ ALERTA: Se dor no joelho > RPE 3, troque Agachamento por Leg Press 45º. Monitorar sono para evitar overtraining.",
+      "exercises": [
+        {
+          "name": "Bloco 1: RAMP - Mobilidade de Tornozelo e Ativação de Glúteo",
+          "nickname": "Ativação",
+          "equipment": "Elástico e Colchonete",
+          "accessory": "45s",
+          "method": "Controle e Amplitude",
+          "sets": 2,
+          "reps": 15,
+          "weight_kg": 0.0
+        },
+        {
+          "name": "Agachamento Livre",
+          "nickname": "RPE 8",
+          "equipment": "Barra e Anilhas",
+          "accessory": "3 min",
+          "method": "3-0-X-0 (Explosivo na subida)",
+          "sets": 4,
+          "reps": 5,
+          "weight_kg": 100.0
+        },
+        {
+          "name": "Bloco 3: Cool-down - Respiração Diafragmática",
+          "nickname": "Recuperação",
+          "equipment": "Nenhum",
+          "accessory": "5 min",
+          "method": "Parassimpático",
+          "sets": 1,
+          "reps": 10,
+          "weight_kg": 0.0
+        }
+      ]
+    }
+  ]
+}"""
+
+def parse_workout_from_text(raw_text: str) -> dict:
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Extraia o treino da imagem/texto seguindo o mapeamento JSON (nickname=Intensidade/RPE, method=Cadência). Números únicos:\n\n{raw_text}"}
+            ],
+            temperature=0.2,
+            max_tokens=4096,
+            response_format={"type": "json_object"},
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"❌ Erro OCR: {e}")
+        return {"workouts": []}
+
+def generate_workout(request_data: dict) -> dict:
+    try:
+        goal = request_data.get('goal', 'hipertrofia').lower()
+        goal_rule = GOAL_RULES.get(goal, GOAL_RULES["hipertrofia"])
+        days = request_data.get('days_per_week', 1)
+        
+        prof_info = ""
+        if request_data.get('professor_name'):
+            prof_info += f"Treinador: {request_data['professor_name']}\n"
+        if request_data.get('specialization'):
+            prof_info += f"Especialização: {request_data['specialization']}\n"
+        if request_data.get('training_philosophy'):
+            prof_info += f"Filosofia: {request_data['training_philosophy']}\n"
+        if request_data.get('preferred_methods'):
+            prof_info += f"Métodos: {request_data['preferred_methods']}\n"
+        if request_data.get('rest_time'):
+            prof_info += f"Descanso Padrão: {request_data['rest_time']}\n"
+
+        prof_block = f"👨‍🏫 CONTEXTO DO PROFISSIONAL:\n{prof_info}" if prof_info else ""
+        instr_block = f"⚠️ INSTRUÇÕES ESPECÍFICAS: {request_data.get('custom_instructions')}" if request_data.get('custom_instructions') else ""
+
+        anamnese_prompt = f"""
+        CONTEXTO DO ATLETA:
+        - Objetivo: {goal_rule}
+        - Nível: {request_data.get('level', 'intermediário')}
+        - Frequência: {days} treino(s)
+        
+        {prof_block}
+        {instr_block}
+        
+        TAREFA: Monte EXATAMENTE {days} treino(s). 
+        - Inclua os 3 Blocos (Warm-up, Main Session, Cool-down).
+        - Preencha nickname com INTENSIDADE/RPE e method com CADÊNCIA/TEMPO DE EXECUÇÃO.
+        - Use o campo 'notes' para Alertas de Risco (lesão, overtraining).
+        """
+
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": anamnese_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=8192,
+            response_format={"type": "json_object"},
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"❌ Erro Geração: {e}")
+        return {"workouts": []}
