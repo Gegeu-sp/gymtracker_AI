@@ -1,0 +1,89 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GymTracker AI - Execution & Progression API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/workouts/{workout_id}/execution": {
+      "put": {
+        "summary": "Registrar dados reais de execução pós-treino",
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["exercise_id", "actual_weight_kg", "actual_reps", "actual_rpe"],
+                  "properties": {
+                    "exercise_id": { "type": "integer" },
+                    "actual_weight_kg": { "type": "number", "minimum": 0.0 },
+                    "actual_reps": { "type": "integer", "minimum": 0 },
+                    "actual_rpe": { "type": "number", "minimum": 1.0, "maximum": 10.0 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dados de execução salvos e histórico atualizado com sucesso"
+          },
+          "422": {
+            "description": "Erro de validação nos dados de execução (ex: RPE fora de 1-10 ou valor negativo)"
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}/progression": {
+      "get": {
+        "summary": "Obter sugestão de progressão de carga para o próximo treino",
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de sugestões de progressão de carga por exercício",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "exercise_id": { "type": "integer" },
+                      "exercise_name": { "type": "string" },
+                      "last_weight_kg": { "type": "number" },
+                      "last_reps": { "type": "integer" },
+                      "last_rpe": { "type": "number" },
+                      "suggested_weight_kg": { "type": "number" },
+                      "progression_applied": { "type": "number" },
+                      "safety_cap_applied": { "type": "boolean" },
+                      "notes": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

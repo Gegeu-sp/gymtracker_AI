@@ -17,6 +17,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# IDEs
+# IDEs e testes
 .vscode/
 .idea/
+.pytest_cache/

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -11,6 +11,12 @@ class ExerciseBase(BaseModel):
     sets: int
     reps: int
     weight_kg: float = 0.0
+    
+    # Execução real e estado de edição
+    actual_weight_kg: Optional[float] = None
+    actual_reps: Optional[int] = None
+    actual_rpe: Optional[float] = None
+    is_edited: bool = False
 
 class ExerciseCreate(ExerciseBase):
     pass
@@ -21,10 +27,55 @@ class ExerciseOut(ExerciseBase):
 
     @property
     def volume(self) -> float:
-        return float(self.sets * self.reps * (self.weight_kg or 0.0))
+        return self.sets * self.reps * (self.weight_kg or 0.0)
 
     class Config:
         from_attributes = True
+
+class ExerciseEditRequest(BaseModel):
+    exercise_id: int
+    sets: Optional[int] = None
+    reps: Optional[int] = None
+    weight_kg: Optional[float] = None
+    method: Optional[str] = None
+
+class WorkoutEditRequest(BaseModel):
+    exercises: List[ExerciseEditRequest]
+    notes: Optional[str] = None
+
+class ExerciseExecutionItem(BaseModel):
+    exercise_id: int
+    actual_weight_kg: float
+    actual_reps: int
+    actual_rpe: float
+
+    @field_validator('actual_rpe')
+    @classmethod
+    def validate_rpe(cls, v: float) -> float:
+        if not (1.0 <= v <= 10.0):
+            raise ValueError('O RPE percebido deve estar entre 1.0 e 10.0')
+        return v
+
+    @field_validator('actual_weight_kg', 'actual_reps')
+    @classmethod
+    def validate_non_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError('Valores de carga e repetições não podem ser negativos')
+        return v
+
+class WorkoutExecutionRequest(BaseModel):
+    executions: List[ExerciseExecutionItem]
+
+class ExerciseProgressionOut(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    last_weight_kg: Optional[float] = None
+    last_reps: Optional[int] = None
+    last_rpe: Optional[float] = None
+    suggested_weight_kg: float
+    progression_applied: float  # Delta em kg (+2.5, +5.0, 0.0, etc.)
+    safety_cap_applied: bool = False
+    notes: str
 
 class WorkoutCreate(BaseModel):
     exercises: List[ExerciseCreate]

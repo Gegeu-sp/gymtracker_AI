@@ -14,9 +14,9 @@ resultado = parse_workout_from_text(texto_exemplo)
 print(resultado)
 
 print("\n🧪 Teste 2: Gerar treino do zero")
-treino = generate_workout(
-    goal="hipertrofia",
-    level="intermediário",
-    days_per_week=4
-)
+treino = generate_workout({
+    "goal": "hipertrofia",
+    "level": "intermediário",
+    "days_per_week": 4
+})
 print(treino)

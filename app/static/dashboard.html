@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Tracker AI - Dashboard</title>
+    <!-- html2pdf.js CDN para exportação de PDF limpo -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #006494; --primary-light: #247BA0; --secondary: #1B98E0;
             --accent: #FF6B6B; --bg-dark: #E8F1F2; --bg-card: #FFFFFF;
             --text-primary: #006494; --text-secondary: #5A7A8C;
-            --border: #D1E3E8; --success: #2ECC71;
+            --border: #D1E3E8; --success: #2ECC71; --warning: #F39C12;
         }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: var(--text-primary); min-height: 100vh; padding: 0; margin: 0; }
         .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
@@ -30,7 +32,11 @@
         .btn { width: 100%; padding: 16px 32px; background: linear-gradient(135deg, var(--secondary) 0%, var(--primary-light) 100%); border: none; border-radius: 8px; color: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(27, 152, 224, 0.4); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-sm { padding: 8px 16px; font-size: 0.9rem; font-weight: 600; text-transform: none; letter-spacing: 0; width: auto; margin-top: 0; }
         .btn-accent { background: linear-gradient(135deg, var(--accent) 0%, #FF5252 100%); }
+        .btn-success { background: linear-gradient(135deg, var(--success) 0%, #27AE60 100%); }
+        .btn-warning { background: linear-gradient(135deg, var(--warning) 0%, #E67E22 100%); }
+        .btn-info { background: linear-gradient(135deg, #0288d1 0%, #01579b 100%); }
         .upload-area { border: 3px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; background: var(--bg-dark); transition: all 0.3s ease; cursor: pointer; margin-bottom: 20px; }
         .upload-area:hover { border-color: var(--secondary); background: rgba(27, 152, 224, 0.05); }
         .upload-icon { font-size: 3rem; margin-bottom: 15px; }
@@ -40,11 +46,12 @@
         .preview-container { display: none; margin-top: 20px; text-align: center; }
         .preview-container.active { display: block; }
         .preview-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; }
-        .result-card { display: none; animation: fadeIn 0.5s ease; }
+        .result-card { display: none; animation: fadeIn 0.5s ease; margin-bottom: 30px; }
         .result-card.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .workout-day { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
+        .workout-day { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; position: relative; }
         .workout-day h3 { margin-bottom: 10px; font-size: 1.3rem; }
+        .workout-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
         .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
         .stat-item { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center; }
         .stat-value { font-size: 1.8rem; font-weight: 800; color: white; }
@@ -56,6 +63,7 @@
         .exercise-details { display: flex; flex-wrap: wrap; gap: 10px; }
         .detail-tag { background: white; color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; border: 1px solid var(--border); }
         .detail-tag strong { color: var(--primary); }
+        .detail-tag-exec { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
         .exercise-volume { background: linear-gradient(135deg, var(--success) 0%, #27AE60 100%); color: white; padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 110px; display: flex; flex-direction: column; justify-content: center; }
         .exercise-volume .value { font-size: 1.5rem; font-weight: 800; }
         .loading { display: none; text-align: center; padding: 60px 20px; }
@@ -71,13 +79,24 @@
         footer a { color: white; text-decoration: none; font-weight: 600; margin: 0 15px; }
         footer a:hover { text-decoration: underline; }
         .divider { height: 2px; background: var(--border); margin: 30px 0; }
+
+        /* Modal Overlay & Dialog Styles */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: white; border-radius: 16px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }
+        .modal-header h3 { color: var(--primary); font-size: 1.5rem; }
+        .close-modal { background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--text-secondary); }
+        .edit-ex-row { background: var(--bg-dark); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr; gap: 10px; align-items: center; }
+        .edit-ex-row input, .edit-ex-row select { font-size: 0.9rem; padding: 8px 10px; }
+        .badge-safety { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-top: 5px; display: inline-block; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🏋️ Gym Tracker AI</h1>
-            <p>Gerador Inteligente de Treinos com Perfil do Professor</p>
+            <p>Gerador Inteligente de Treinos com Perfil do Professor & Registro de Execução</p>
         </header>
 
         <div class="grid">
@@ -96,7 +115,7 @@
 
                 <div class="divider"></div>
 
-                <h2>️ Gerar com IA + Perfil do Professor</h2>
+                <h2>🤖 Gerar com IA + Perfil do Professor</h2>
                 <form id="workoutForm">
                     <div class="row">
                         <div class="form-group">
@@ -194,10 +213,65 @@
         </footer>
     </div>
 
+    <!-- MODAL 1: EDICÃO PRÉ-SALVAMENTO -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>✏️ Ajustar Prescrição de Treino</h3>
+                <button class="close-modal" onclick="closeModal('editModal')">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+                Modifique as séries, repetições, carga sugerida e métodos antes de confirmar a versão final no banco.
+            </p>
+            <div id="editModalContent"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('editModal')">Cancelar</button>
+                <button class="btn btn-sm btn-accent" id="saveEditBtn" onclick="submitPrescriptionEdit()">💾 Confirmar & Salvar Ajustes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: REGISTRO PÓS-TREINO -->
+    <div class="modal-overlay" id="executionModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📝 Registrar Treino Real Executado</h3>
+                <button class="close-modal" onclick="closeModal('executionModal')">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+                Insira os dados reais de carga utilizada, repetições concluídas e RPE (Percepção de Esforço de 1.0 a 10.0).
+            </p>
+            <div id="executionModalContent"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('executionModal')">Cancelar</button>
+                <button class="btn btn-sm btn-success" id="saveExecBtn" onclick="submitExecutionLog()">✅ Registrar Execução Real</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: VERIFICAÇÃO DE PROGRESSÃO DE CARGA -->
+    <div class="modal-overlay" id="progressionModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📈 Sugestão de Sobrecarga Progressiva</h3>
+                <button class="close-modal" onclick="closeModal('progressionModal')">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+                Cálculo automático de carga para a próxima sessão baseado no RPE e desempenho anterior (limite máx 120%).
+            </p>
+            <div id="progressionModalContent"></div>
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('progressionModal')">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let currentWorkoutsData = [];
+        let activeWorkoutForAction = null;
         let selectedFile = null;
+
         const uploadArea = document.getElementById('uploadArea');
-        
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
         uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--border)'; });
         uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--border)'; if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); });
@@ -230,7 +304,8 @@
                 const response = await fetch('/image/upload', { method: 'POST', body: formData });
                 if (!response.ok) throw new Error(`Erro: ${response.status}`);
                 const workout = await response.json();
-                displayWorkouts([workout]);
+                currentWorkoutsData = [workout];
+                displayWorkouts(currentWorkoutsData);
             } catch (error) {
                 showError(`Erro ao processar imagem: ${error.message}`);
                 document.getElementById('emptyState').style.display = 'block';
@@ -270,8 +345,8 @@
                     body: JSON.stringify(requestData)
                 });
                 if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                const workouts = await response.json();
-                displayWorkouts(workouts);
+                currentWorkoutsData = await response.json();
+                displayWorkouts(currentWorkoutsData);
             } catch (error) {
                 showError(`Erro ao gerar treinos: ${error.message}`);
                 document.getElementById('emptyState').style.display = 'block';
@@ -292,6 +367,11 @@
                 let exercisesHtml = '';
                 workout.exercises.forEach((exercise, exIndex) => {
                     const exerciseVolume = exercise.sets * exercise.reps * (exercise.weight_kg || 0);
+                    let execBadge = '';
+                    if (exercise.actual_weight_kg !== null && exercise.actual_weight_kg !== undefined) {
+                        execBadge = `<span class="detail-tag detail-tag-exec"><strong>Real:</strong> ${exercise.actual_weight_kg}kg | ${exercise.actual_reps} reps | RPE ${exercise.actual_rpe}</span>`;
+                    }
+
                     exercisesHtml += `
                         <div class="exercise-item">
                             <div>
@@ -299,11 +379,12 @@
                                 <div class="exercise-details">
                                     ${exercise.nickname ? `<span class="detail-tag"><strong>Apelido:</strong> ${exercise.nickname}</span>` : ''}
                                     ${exercise.equipment ? `<span class="detail-tag"><strong>Equip:</strong> ${exercise.equipment}</span>` : ''}
-                                    ${exercise.accessory ? `<span class="detail-tag"><strong>Acess:</strong> ${exercise.accessory}</span>` : ''}
                                     ${exercise.method ? `<span class="detail-tag"><strong>Método:</strong> ${exercise.method}</span>` : ''}
                                     <span class="detail-tag"><strong>Séries:</strong> ${exercise.sets}</span>
                                     <span class="detail-tag"><strong>Reps:</strong> ${exercise.reps}</span>
                                     <span class="detail-tag"><strong>Peso:</strong> ${exercise.weight_kg}kg</span>
+                                    ${exercise.is_edited ? `<span class="detail-tag" style="background:#fff8e1; color:#f57f17;">✏️ Editado</span>` : ''}
+                                    ${execBadge}
                                 </div>
                             </div>
                             <div class="exercise-volume">
@@ -323,6 +404,12 @@
                             <div class="stat-item"><div class="stat-value">${workout.total_sets}</div><div class="stat-label">Séries</div></div>
                             <div class="stat-item"><div class="stat-value">${workout.total_volume.toLocaleString('pt-BR')}</div><div class="stat-label">Volume (kg)</div></div>
                         </div>
+                        <div class="workout-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="openEditModal(${workout.id})">✏️ Editar Prescrição</button>
+                            <button class="btn btn-sm btn-success" onclick="openExecutionModal(${workout.id})">📝 Registrar Treino Real</button>
+                            <button class="btn btn-sm btn-warning" onclick="openProgressionModal(${workout.id})">📈 Verificar Progressão</button>
+                            <button class="btn btn-sm btn-info" onclick="downloadWorkoutPDF(${workout.id})">📄 Baixar PDF</button>
+                        </div>
                     </div>
                     <div class="exercise-list">${exercisesHtml}</div>
                 `;
@@ -332,10 +419,378 @@
             document.getElementById('quickActions').style.display = 'flex';
         }
 
+        // --- MANIPULAÇÃO DE MODAIS ---
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // 1. MODAL DE EDIÇÃO PRÉ-SALVAMENTO
+        function openEditModal(workoutId) {
+            const workout = currentWorkoutsData.find(w => w.id === workoutId);
+            if (!workout) return;
+            activeWorkoutForAction = workout;
+
+            const content = document.getElementById('editModalContent');
+            let rowsHtml = '';
+            
+            workout.exercises.forEach(ex => {
+                rowsHtml += `
+                    <div class="edit-ex-row" data-ex-id="${ex.id}">
+                        <div style="font-weight: 700; color: var(--primary);">${ex.name}</div>
+                        <div>
+                            <label>Séries</label>
+                            <input type="number" class="edit-sets" value="${ex.sets}" min="1">
+                        </div>
+                        <div>
+                            <label>Reps Target</label>
+                            <input type="number" class="edit-reps" value="${ex.reps}" min="1">
+                        </div>
+                        <div>
+                            <label>Carga (kg)</label>
+                            <input type="number" step="0.5" class="edit-weight" value="${ex.weight_kg}" min="0">
+                        </div>
+                        <div>
+                            <label>Método</label>
+                            <select class="edit-method">
+                                <option value="Tradicional" ${ex.method === 'Tradicional' ? 'selected' : ''}>Tradicional</option>
+                                <option value="Drop-set" ${ex.method === 'Drop-set' ? 'selected' : ''}>Drop-set</option>
+                                <option value="Rest-pause" ${ex.method === 'Rest-pause' ? 'selected' : ''}>Rest-pause</option>
+                                <option value="Bi-set" ${ex.method === 'Bi-set' ? 'selected' : ''}>Bi-set</option>
+                                <option value="Pirâmide" ${ex.method === 'Pirâmide' ? 'selected' : ''}>Pirâmide</option>
+                                <option value="Cluster" ${ex.method === 'Cluster' ? 'selected' : ''}>Cluster</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = rowsHtml;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        async function submitPrescriptionEdit() {
+            if (!activeWorkoutForAction) return;
+
+            const rows = document.querySelectorAll('#editModalContent .edit-ex-row');
+            const exercisesPayload = [];
+
+            rows.forEach(row => {
+                exercisesPayload.push({
+                    exercise_id: parseInt(row.getAttribute('data-ex-id')),
+                    sets: parseInt(row.querySelector('.edit-sets').value),
+                    reps: parseInt(row.querySelector('.edit-reps').value),
+                    weight_kg: parseFloat(row.querySelector('.edit-weight').value),
+                    method: row.querySelector('.edit-method').value
+                });
+            });
+
+            try {
+                const response = await fetch(`/workouts/${activeWorkoutForAction.id}/edit`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exercises: exercisesPayload })
+                });
+
+                if (!response.ok) throw new Error('Falha ao salvar edições da prescrição.');
+                const updatedWorkout = await response.json();
+                
+                // Atualiza array local e re-renderiza
+                const idx = currentWorkoutsData.findIndex(w => w.id === updatedWorkout.id);
+                if (idx !== -1) currentWorkoutsData[idx] = updatedWorkout;
+                
+                displayWorkouts(currentWorkoutsData);
+                closeModal('editModal');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // 2. MODAL DE REGISTRO PÓS-TREINO
+        function openExecutionModal(workoutId) {
+            const workout = currentWorkoutsData.find(w => w.id === workoutId);
+            if (!workout) return;
+            activeWorkoutForAction = workout;
+
+            const content = document.getElementById('executionModalContent');
+            let rowsHtml = '';
+
+            workout.exercises.forEach(ex => {
+                const defaultWeight = ex.actual_weight_kg !== null ? ex.actual_weight_kg : ex.weight_kg;
+                const defaultReps = ex.actual_reps !== null ? ex.actual_reps : ex.reps;
+                const defaultRpe = ex.actual_rpe !== null ? ex.actual_rpe : 8.0;
+
+                rowsHtml += `
+                    <div class="edit-ex-row" data-ex-id="${ex.id}" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+                        <div style="font-weight: 700; color: var(--primary);">${ex.name}</div>
+                        <div>
+                            <label>Carga Real (kg)</label>
+                            <input type="number" step="0.5" class="exec-weight" value="${defaultWeight}" min="0">
+                        </div>
+                        <div>
+                            <label>Reps Reais</label>
+                            <input type="number" class="exec-reps" value="${defaultReps}" min="0">
+                        </div>
+                        <div>
+                            <label>RPE (1.0 - 10.0)</label>
+                            <input type="number" step="0.5" class="exec-rpe" value="${defaultRpe}" min="1.0" max="10.0">
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = rowsHtml;
+            document.getElementById('executionModal').classList.add('active');
+        }
+
+        async function submitExecutionLog() {
+            if (!activeWorkoutForAction) return;
+
+            const rows = document.querySelectorAll('#executionModalContent .edit-ex-row');
+            const executionsPayload = [];
+
+            for (const row of rows) {
+                const rpeVal = parseFloat(row.querySelector('.exec-rpe').value);
+                if (rpeVal < 1.0 || rpeVal > 10.0) {
+                    alert('Erro de validação: O RPE deve estar obrigatoriamente entre 1.0 e 10.0.');
+                    return;
+                }
+                executionsPayload.push({
+                    exercise_id: parseInt(row.getAttribute('data-ex-id')),
+                    actual_weight_kg: parseFloat(row.querySelector('.exec-weight').value),
+                    actual_reps: parseInt(row.querySelector('.exec-reps').value),
+                    actual_rpe: rpeVal
+                });
+            }
+
+            try {
+                const response = await fetch(`/workouts/${activeWorkoutForAction.id}/log`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ executions: executionsPayload })
+                });
+
+                if (!response.ok) throw new Error('Falha ao registrar execução do treino.');
+                const updatedWorkout = await response.json();
+
+                const idx = currentWorkoutsData.findIndex(w => w.id === updatedWorkout.id);
+                if (idx !== -1) currentWorkoutsData[idx] = updatedWorkout;
+
+                displayWorkouts(currentWorkoutsData);
+                closeModal('executionModal');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // 3. MODAL DE PROGRESSÃO DE CARGA (COM TRAVA DE 120%)
+        async function openProgressionModal(workoutId) {
+            try {
+                const response = await fetch(`/workouts/${workoutId}/progression`);
+                if (!response.ok) throw new Error('Erro ao consultar sobrecarga progressiva.');
+                const progressions = await response.json();
+
+                const content = document.getElementById('progressionModalContent');
+                let html = '';
+
+                progressions.forEach(p => {
+                    let capBadge = p.safety_cap_applied ? `<div class="badge-safety">⚠️ Trava de 120% aplicada</div>` : '';
+                    let deltaStr = p.progression_applied > 0 ? `+${p.progression_applied}kg` : 'Mantida';
+
+                    html += `
+                        <div style="background: var(--bg-dark); padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid var(--warning);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <strong style="color: var(--primary); font-size: 1.05rem;">${p.exercise_name}</strong>
+                                <span style="background: white; padding: 4px 10px; border-radius: 6px; font-weight: 700; color: var(--success); border: 1px solid var(--border);">
+                                    Próxima Carga: ${p.suggested_weight_kg} kg (${deltaStr})
+                                </span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                                Última Execução: ${p.last_weight_kg !== null ? p.last_weight_kg + 'kg' : 'N/A'} | Reps: ${p.last_reps !== null ? p.last_reps : 'N/A'} | RPE: ${p.last_rpe !== null ? p.last_rpe : 'N/A'}
+                            </div>
+                            <div style="font-size: 0.9rem; color: #444; margin-top: 6px;">💡 <em>${p.notes}</em></div>
+                            ${capBadge}
+                        </div>
+                    `;
+                });
+
+                content.innerHTML = html;
+                document.getElementById('progressionModal').classList.add('active');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
         function showError(message) {
             const errorEl = document.getElementById('errorMessage');
             if (message) { errorEl.textContent = message; errorEl.classList.add('active'); } 
             else { errorEl.classList.remove('active'); }
+        }
+
+        // --- EXPORTAÇÃO PARA PDF (PRINT-FRIENDLY) ---
+        async function getWorkoutById(workoutId) {
+            let workout = currentWorkoutsData.find(w => w.id === workoutId);
+            if (!workout) {
+                try {
+                    const response = await fetch('/workouts/');
+                    if (response.ok) {
+                        const list = await response.json();
+                        workout = list.find(w => w.id === workoutId);
+                    }
+                } catch (e) {
+                    console.error('Erro ao buscar treinos:', e);
+                }
+            }
+            return workout;
+        }
+
+        async function downloadWorkoutPDF(workoutId) {
+            try {
+                const workout = await getWorkoutById(workoutId);
+                if (!workout) {
+                    alert('Treino não encontrado para exportação em PDF.');
+                    return;
+                }
+
+                const dateStr = workout.date ? new Date(workout.date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+                
+                // Categoriza os exercícios nos 3 blocos metodológicos
+                const { block1, block2, block3 } = categorizeExercisesIntoBlocks(workout.exercises || []);
+
+                const tempContainer = document.createElement('div');
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.top = '-9999px';
+
+                const notesHtml = workout.notes ? `
+                    <div style="background: #fff8e1; border: 2px solid #ffe0b2; border-left: 6px solid #f57f17; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #e65100; font-size: 0.95rem; display: block; margin-bottom: 4px;">⚠️ OBSERVAÇÕES & ALERTAS DE RISCO DO TREINADOR:</strong>
+                        <span style="color: #424242; font-size: 0.9rem; font-weight: 500;">${workout.notes}</span>
+                    </div>
+                ` : '';
+
+                const block1Html = renderBlockTablePDF("🔥 BLOCO 1: PREPARAÇÃO E ATIVAÇÃO (WARM-UP / MOBILIDADE)", block1, "#e3f2fd", "#0d47a1");
+                const block2Html = renderBlockTablePDF("💪 BLOCO 2: SESSÃO PRINCIPAL (MAIN SESSION)", block2, "#e8f5e9", "#1b5e20");
+                const block3Html = renderBlockTablePDF("🧘 BLOCO 3: RETORNO À HOMEOSTASE (COOL-DOWN / RECOVERY)", block3, "#f3e5f5", "#4a148c");
+
+                tempContainer.innerHTML = `
+                    <div id="pdf-content-${workoutId}" style="padding: 25px; font-family: 'Segoe UI', Arial, sans-serif; background: #ffffff; color: #111111; max-width: 800px; margin: 0 auto; line-height: 1.4;">
+                        <div style="border-bottom: 3px solid #006494; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div>
+                                <h1 style="color: #006494; font-size: 1.8rem; margin: 0; font-weight: 800;">🏋️ Gym Tracker AI</h1>
+                                <p style="color: #555555; font-size: 0.95rem; margin: 4px 0 0 0; font-weight: 600;">Ficha de Prescrição & Acompanhamento de Treino</p>
+                            </div>
+                            <div style="text-align: right; font-size: 0.85rem; color: #444444;">
+                                <div><strong>Treino ID:</strong> #${workout.id}</div>
+                                <div><strong>Data:</strong> ${dateStr}</div>
+                                <div><strong>Origem:</strong> ${(workout.source || 'MANUAL').toUpperCase()}</div>
+                            </div>
+                        </div>
+
+                        ${notesHtml}
+                        ${block1Html}
+                        ${block2Html}
+                        ${block3Html}
+
+                        <div style="margin-top: 25px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 0.75rem; color: #777; text-align: center;">
+                            Gym Tracker AI • Ficha Oficial de Treino • Gerado em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(tempContainer);
+                const element = document.getElementById(`pdf-content-${workoutId}`);
+
+                if (window.html2pdf) {
+                    const opt = {
+                        margin: [10, 10, 10, 10],
+                        filename: `Treino_${workout.id}_${dateStr.replace(/\//g, '-')}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    await html2pdf().set(opt).from(element).save();
+                } else {
+                    const printWin = window.open('', '_blank');
+                    printWin.document.write(`<html><head><title>Treino ${workout.id}</title></head><body>${element.innerHTML}</body></html>`);
+                    printWin.document.close();
+                    printWin.focus();
+                    printWin.print();
+                    printWin.close();
+                }
+
+                document.body.removeChild(tempContainer);
+            } catch (err) {
+                alert(`Erro ao gerar PDF: ${err.message}`);
+            }
+        }
+
+        function categorizeExercisesIntoBlocks(exercises) {
+            const block1 = [];
+            const block2 = [];
+            const block3 = [];
+
+            exercises.forEach(ex => {
+                const nameLower = (ex.name || '').toLowerCase();
+                
+                if (nameLower.includes('bloco 1') || nameLower.includes('aquecimento') || nameLower.includes('mobilidade') || nameLower.includes('ativação') || nameLower.includes('warm-up') || nameLower.includes('warmup')) {
+                    block1.push(ex);
+                } else if (nameLower.includes('bloco 3') || nameLower.includes('volta à calma') || nameLower.includes('cool-down') || nameLower.includes('cooldown') || nameLower.includes('recovery') || nameLower.includes('descompressão') || nameLower.includes('respiração')) {
+                    block3.push(ex);
+                } else {
+                    block2.push(ex);
+                }
+            });
+
+            return { block1, block2, block3 };
+        }
+
+        function renderBlockTablePDF(title, exercises, headerBg, headerTextColor) {
+            if (!exercises || exercises.length === 0) return '';
+
+            let rowsHtml = '';
+            exercises.forEach((ex, idx) => {
+                const name = ex.name || 'Exercício';
+                const equip = ex.equipment ? ` <small style="color: #666;">(${ex.equipment})</small>` : '';
+                const setsReps = `${ex.sets}x ${ex.reps}`;
+                const weight = ex.weight_kg ? `${ex.weight_kg} kg` : '0.0 kg';
+                const method = ex.method || 'Tradicional';
+                const execInfo = (ex.actual_weight_kg !== null && ex.actual_weight_kg !== undefined) 
+                    ? `${ex.actual_weight_kg}kg | ${ex.actual_reps}r | RPE ${ex.actual_rpe}`
+                    : '[ ___ kg | ___ reps | RPE ___ ]';
+
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 8px 10px; font-weight: 600; color: #222; font-size: 0.88rem;">${idx + 1}. ${name}${equip}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #006494; font-size: 0.88rem;">${setsReps}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #2e7d32; font-size: 0.88rem;">${weight}</td>
+                        <td style="padding: 8px 10px; font-size: 0.82rem; color: #555;">${method}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-size: 0.82rem; font-family: monospace; color: #444; background: #fafafa; border-left: 1px dashed #ccc;">${execInfo}</td>
+                    </tr>
+                `;
+            });
+
+            return `
+                <div style="margin-bottom: 20px; page-break-inside: avoid;">
+                    <div style="background: ${headerBg}; color: ${headerTextColor}; padding: 8px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 4px 4px 0 0; border: 1px solid #ddd; border-bottom: none;">
+                        ${title}
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #ddd; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd; color: #333; font-size: 0.8rem; text-transform: uppercase;">
+                                <th style="padding: 8px 10px; text-align: left;">Exercício</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 14%;">Séries x Reps</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 14%;">Carga Prescrita</th>
+                                <th style="padding: 8px 10px; text-align: left; width: 22%;">Método / Cadência</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 24%;">Execução Real (Anotação)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
     </script>
 </body>
