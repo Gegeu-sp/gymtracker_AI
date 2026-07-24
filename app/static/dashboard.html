@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Tracker AI - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #006494; --primary-light: #247BA0; --secondary: #1B98E0;
+            --accent: #FF6B6B; --bg-dark: #E8F1F2; --bg-card: #FFFFFF;
+            --text-primary: #006494; --text-secondary: #5A7A8C;
+            --border: #D1E3E8; --success: #2ECC71;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: var(--text-primary); min-height: 100vh; padding: 0; margin: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 40px; padding: 30px 0; border-bottom: 2px solid rgba(255,255,255,0.2); }
+        header h1 { font-size: 2.8rem; margin-bottom: 10px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        header p { color: rgba(255,255,255,0.9); font-size: 1.1rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+        @media (max-width: 968px) { .grid { grid-template-columns: 1fr; } }
+        .card { background: var(--bg-card); border-radius: 16px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .card h2 { color: var(--primary); margin-bottom: 25px; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--border); padding-bottom: 15px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 12px 16px; background: var(--bg-dark); border: 2px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem; font-family: inherit; transition: all 0.3s ease; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--secondary); background: white; }
+        textarea { resize: vertical; min-height: 80px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { width: 100%; padding: 16px 32px; background: linear-gradient(135deg, var(--secondary) 0%, var(--primary-light) 100%); border: none; border-radius: 8px; color: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(27, 152, 224, 0.4); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-accent { background: linear-gradient(135deg, var(--accent) 0%, #FF5252 100%); }
+        .upload-area { border: 3px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; background: var(--bg-dark); transition: all 0.3s ease; cursor: pointer; margin-bottom: 20px; }
+        .upload-area:hover { border-color: var(--secondary); background: rgba(27, 152, 224, 0.05); }
+        .upload-icon { font-size: 3rem; margin-bottom: 15px; }
+        .upload-text { color: var(--text-primary); font-weight: 600; margin-bottom: 8px; }
+        .upload-hint { color: var(--text-secondary); font-size: 0.85rem; }
+        #fileInput { display: none; }
+        .preview-container { display: none; margin-top: 20px; text-align: center; }
+        .preview-container.active { display: block; }
+        .preview-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; }
+        .result-card { display: none; animation: fadeIn 0.5s ease; }
+        .result-card.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .workout-day { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
+        .workout-day h3 { margin-bottom: 10px; font-size: 1.3rem; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .stat-item { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: white; }
+        .stat-label { font-size: 0.85rem; opacity: 0.9; margin-top: 5px; }
+        .exercise-list { margin-top: 20px; }
+        .exercise-item { background: var(--bg-dark); border-left: 4px solid var(--secondary); border-radius: 8px; padding: 20px; margin-bottom: 15px; display: grid; grid-template-columns: 1fr auto; gap: 20px; transition: all 0.3s ease; }
+        .exercise-item:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .exercise-name { font-size: 1.15rem; font-weight: 700; color: var(--primary); margin-bottom: 10px; }
+        .exercise-details { display: flex; flex-wrap: wrap; gap: 10px; }
+        .detail-tag { background: white; color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; border: 1px solid var(--border); }
+        .detail-tag strong { color: var(--primary); }
+        .exercise-volume { background: linear-gradient(135deg, var(--success) 0%, #27AE60 100%); color: white; padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 110px; display: flex; flex-direction: column; justify-content: center; }
+        .exercise-volume .value { font-size: 1.5rem; font-weight: 800; }
+        .loading { display: none; text-align: center; padding: 60px 20px; }
+        .loading.active { display: block; }
+        .spinner { width: 50px; height: 50px; border: 4px solid var(--border); border-top-color: var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-message { background: #FEE2E2; border: 1px solid #FCA5A5; color: #DC2626; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; font-weight: 500; }
+        .error-message.active { display: block; }
+        .quick-actions { display: flex; gap: 15px; margin-top: 25px; }
+        .btn-secondary { background: var(--bg-dark); color: var(--primary); border: 2px solid var(--border); }
+        .btn-secondary:hover { background: var(--border); box-shadow: none; }
+        footer { text-align: center; padding: 30px; color: rgba(255,255,255,0.8); border-top: 1px solid rgba(255,255,255,0.2); margin-top: 40px; }
+        footer a { color: white; text-decoration: none; font-weight: 600; margin: 0 15px; }
+        footer a:hover { text-decoration: underline; }
+        .divider { height: 2px; background: var(--border); margin: 30px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏋️ Gym Tracker AI</h1>
+            <p>Gerador Inteligente de Treinos com Perfil do Professor</p>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h2>📸 Upload de Imagem</h2>
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">Clique ou arraste uma imagem aqui</div>
+                    <div class="upload-hint">Formatos: JPG, PNG | Máx: 10MB</div>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+                <div class="preview-container" id="previewContainer">
+                    <img id="previewImage" class="preview-image" alt="Preview">
+                    <button class="btn btn-accent" onclick="uploadImage()" id="uploadBtn">🔍 Extrair Treino da Imagem</button>
+                </div>
+
+                <div class="divider"></div>
+
+                <h2>️ Gerar com IA + Perfil do Professor</h2>
+                <form id="workoutForm">
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="professor_name">Nome do Professor</label>
+                            <input type="text" id="professor_name" placeholder="Ex: Prof. Carlos">
+                        </div>
+                        <div class="form-group">
+                            <label for="goal">Objetivo do Aluno</label>
+                            <select id="goal" required>
+                                <option value="hipertrofia">Hipertrofia</option>
+                                <option value="forca">Força Máxima</option>
+                                <option value="resistencia">Resistência</option>
+                                <option value="hiit">HIIT</option>
+                                <option value="funcional">Funcional</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="level">Nível do Aluno</label>
+                            <select id="level" required>
+                                <option value="iniciante">Iniciante</option>
+                                <option value="intermediario">Intermediário</option>
+                                <option value="avancado">Avançado</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="days_per_week">Dias de Treino (1 a 6)</label>
+                            <select id="days_per_week" required>
+                                <option value="1">1 Treino</option>
+                                <option value="2">2 Treinos</option>
+                                <option value="3">3 Treinos</option>
+                                <option value="4">4 Treinos</option>
+                                <option value="5">5 Treinos</option>
+                                <option value="6">6 Treinos</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="specialization">Especialização do Professor</label>
+                        <input type="text" id="specialization" placeholder="Ex: Hipertrofia, Reabilitação, Crossfit">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="training_philosophy">Filosofia de Treino</label>
+                        <textarea id="training_philosophy" placeholder="Ex: Foco em controle excêntrico, falha concêntrica apenas no último exercício."></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="preferred_methods">Métodos Preferidos</label>
+                            <input type="text" id="preferred_methods" placeholder="Ex: Drop-set, Bi-set, Rest-pause">
+                        </div>
+                        <div class="form-group">
+                            <label for="rest_time">Tempo de Descanso</label>
+                            <input type="text" id="rest_time" placeholder="Ex: 60-90 segundos">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="custom_instructions">Instruções Adicionais</label>
+                        <textarea id="custom_instructions" placeholder="Ex: Quero 5 exercícios por treino, sem usar máquinas..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn" id="generateBtn">🚀 Gerar Treinos com IA</button>
+                </form>
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Resultado dos Treinos</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p id="loadingText" style="font-weight: 600; color: var(--primary);">Processando...</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">A IA está analisando e montando seus treinos</p>
+                </div>
+                <div id="resultsContainer"></div>
+                <div id="emptyState" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                    <p style="font-size: 4rem; margin-bottom: 20px;">💪</p>
+                    <p style="font-size: 1.1rem;">Envie uma imagem ou preencha o formulário para gerar treinos personalizados</p>
+                </div>
+                <div class="quick-actions" id="quickActions" style="display: none;">
+                    <button class="btn btn-secondary" onclick="location.reload()">🔄 Novo Treino</button>
+                    <button class="btn btn-secondary" onclick="window.open('/workouts/view', '_blank')">📋 Ver Histórico</button>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <a href="/docs">📚 Documentação API</a>
+            <a href="/workouts/view">📋 Histórico Completo</a>
+            <a href="/analytics/volume">📊 Gráficos</a>
+        </footer>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
+        uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--border)'; });
+        uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--border)'; if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); });
+
+        function handleFileSelect(event) { if (event.target.files[0]) handleFile(event.target.files[0]); }
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) { showError('Apenas arquivos de imagem.'); return; }
+            if (file.size > 10 * 1024 * 1024) { showError('Máximo 10MB.'); return; }
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('previewContainer').classList.add('active');
+                document.getElementById('uploadArea').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadImage() {
+            if (!selectedFile) return;
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsContainer').innerHTML = '';
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('uploadBtn').disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/image/upload', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                const workout = await response.json();
+                displayWorkouts([workout]);
+            } catch (error) {
+                showError(`Erro ao processar imagem: ${error.message}`);
+                document.getElementById('emptyState').style.display = 'block';
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        const form = document.getElementById('workoutForm');
+        const generateBtn = document.getElementById('generateBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showError('');
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsContainer').innerHTML = '';
+            document.getElementById('loading').classList.add('active');
+            generateBtn.disabled = true;
+
+            const requestData = {
+                professor_name: document.getElementById('professor_name').value || null,
+                goal: document.getElementById('goal').value,
+                level: document.getElementById('level').value,
+                days_per_week: parseInt(document.getElementById('days_per_week').value),
+                specialization: document.getElementById('specialization').value || null,
+                training_philosophy: document.getElementById('training_philosophy').value || null,
+                preferred_methods: document.getElementById('preferred_methods').value || null,
+                rest_time: document.getElementById('rest_time').value || null,
+                custom_instructions: document.getElementById('custom_instructions').value || null
+            };
+
+            try {
+                const response = await fetch('/workouts/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                const workouts = await response.json();
+                displayWorkouts(workouts);
+            } catch (error) {
+                showError(`Erro ao gerar treinos: ${error.message}`);
+                document.getElementById('emptyState').style.display = 'block';
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                generateBtn.disabled = false;
+            }
+        });
+
+        function displayWorkouts(workouts) {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '';
+
+            workouts.forEach((workout, index) => {
+                const workoutDiv = document.createElement('div');
+                workoutDiv.className = 'result-card active';
+                
+                let exercisesHtml = '';
+                workout.exercises.forEach((exercise, exIndex) => {
+                    const exerciseVolume = exercise.sets * exercise.reps * (exercise.weight_kg || 0);
+                    exercisesHtml += `
+                        <div class="exercise-item">
+                            <div>
+                                <div class="exercise-name">${exIndex + 1}. ${exercise.name}</div>
+                                <div class="exercise-details">
+                                    ${exercise.nickname ? `<span class="detail-tag"><strong>Apelido:</strong> ${exercise.nickname}</span>` : ''}
+                                    ${exercise.equipment ? `<span class="detail-tag"><strong>Equip:</strong> ${exercise.equipment}</span>` : ''}
+                                    ${exercise.accessory ? `<span class="detail-tag"><strong>Acess:</strong> ${exercise.accessory}</span>` : ''}
+                                    ${exercise.method ? `<span class="detail-tag"><strong>Método:</strong> ${exercise.method}</span>` : ''}
+                                    <span class="detail-tag"><strong>Séries:</strong> ${exercise.sets}</span>
+                                    <span class="detail-tag"><strong>Reps:</strong> ${exercise.reps}</span>
+                                    <span class="detail-tag"><strong>Peso:</strong> ${exercise.weight_kg}kg</span>
+                                </div>
+                            </div>
+                            <div class="exercise-volume">
+                                <div class="value">${exerciseVolume.toLocaleString('pt-BR')}</div>
+                                <div class="label">kg</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                workoutDiv.innerHTML = `
+                    <div class="workout-day">
+                        <h3>📅 Treino ${index + 1}</h3>
+                        <p style="opacity: 0.9; font-size: 0.95rem;">${workout.notes || ''}</p>
+                        <div class="stats">
+                            <div class="stat-item"><div class="stat-value">${workout.total_exercises}</div><div class="stat-label">Exercícios</div></div>
+                            <div class="stat-item"><div class="stat-value">${workout.total_sets}</div><div class="stat-label">Séries</div></div>
+                            <div class="stat-item"><div class="stat-value">${workout.total_volume.toLocaleString('pt-BR')}</div><div class="stat-label">Volume (kg)</div></div>
+                        </div>
+                    </div>
+                    <div class="exercise-list">${exercisesHtml}</div>
+                `;
+                container.appendChild(workoutDiv);
+            });
+
+            document.getElementById('quickActions').style.display = 'flex';
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            if (message) { errorEl.textContent = message; errorEl.classList.add('active'); } 
+            else { errorEl.classList.remove('active'); }
+        }
+    </script>
+</body>
+</html>

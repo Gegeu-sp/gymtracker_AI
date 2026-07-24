@@ -1,0 +1,22 @@
+# Ambiente virtual
+venv/
+.venv/
+
+# Arquivos sensíveis
+.env
+.env.local
+
+# Banco de dados e uploads
+*.db
+uploads/
+
+# Arquivos temporários do Python/Windows
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
