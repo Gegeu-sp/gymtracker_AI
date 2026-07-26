@@ -148,6 +148,12 @@ O histórico de tudo que foi feito no projeto, com data, fica registrado em [CHA
 
 ---
 
+## 💬 Exemplos de Comandos
+
+Exemplos prontos de como preencher Especialização do Professor, Filosofia de Treino e Instruções Adicionais (o campo com prioridade máxima na geração de treinos) estão em [EXEMPLOS_PROMPTS.md](EXEMPLOS_PROMPTS.md).
+
+---
+
 ## 👤 Autor & Créditos
 
 Desenvolvido por **Argeu Rodrigues**, com apoio de **Claude Code (Anthropic)** no desenvolvimento e na arquitetura do projeto.
