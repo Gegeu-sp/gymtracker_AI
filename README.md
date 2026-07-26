@@ -142,6 +142,12 @@ python -m pytest
 
 ---
 
+## 👤 Autor & Créditos
+
+Desenvolvido por **Argeu Rodrigues**, com apoio de **Claude Code (Anthropic)** no desenvolvimento e na arquitetura do projeto.
+
+---
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença [MIT](LICENSE).

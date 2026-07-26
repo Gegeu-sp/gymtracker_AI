@@ -1,5 +1,4 @@
 import os
-import re
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -7,31 +6,10 @@ from ..models import Workout, Exercise
 from ..schemas import WorkoutOut
 from ..services.ocr_service import extract_text_from_image
 from ..services.llm_service import parse_workout_from_text
+from ..services.workout_service import safe_int, safe_float
 from datetime import datetime
 
 router = APIRouter(prefix="/image", tags=["image"])
-
-def safe_int(value, default=3):
-    """Converte valor para int de forma segura, extraindo o primeiro número se for texto."""
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        if isinstance(value, str):
-            match = re.search(r'\d+', value)
-            if match:
-                return int(match.group())
-        return default
-
-def safe_float(value, default=0.0):
-    """Converte valor para float de forma segura."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        if isinstance(value, str):
-            match = re.search(r'\d+\.?\d*', value)
-            if match:
-                return float(match.group())
-        return default
 
 @router.post("/upload", response_model=WorkoutOut)
 async def upload_workout_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -53,24 +31,34 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
         
         # 3. Interpretar com LLM
         parsed = parse_workout_from_text(raw_text)
-        
-        if not parsed.get("exercises"):
+
+        # O LLM sempre responde no formato {"workouts": [{"exercises": [...]}]},
+        # mesmo em parse_workout_from_text (mesmo SYSTEM_PROMPT usado por generate_workout).
+        day_data = (parsed.get("workouts") or [{}])[0]
+        exercises = day_data.get("exercises") or []
+
+        if not exercises:
             raise HTTPException(status_code=400, detail="Nenhum exercício encontrado na imagem")
-        
+
         # 4. Criar registro do treino
+        day_notes = day_data.get("notes")
+        notes = f"Extraído de: {file.filename}"
+        if day_notes:
+            notes += f"\n{day_notes}"
+
         workout = Workout(
             date=datetime.utcnow(),
             source="image",
             image_path=file_path,
-            notes=f"Extraído de: {file.filename}",
+            notes=notes,
             professor_profile=None
         )
         db.add(workout)
         db.commit()
         db.refresh(workout)
-        
+
         # 5. Criar os exercícios vinculados (com conversão segura)
-        for ex in parsed["exercises"]:
+        for ex in exercises:
             exercise = Exercise(
                 workout_id=workout.id,
                 name=ex.get("name", "Exercício"),

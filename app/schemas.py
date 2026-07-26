@@ -93,6 +93,10 @@ class WorkoutGenerationRequest(BaseModel):
     rest_time: Optional[str] = None
     custom_instructions: Optional[str] = None
 
+class OcrPreviewOut(BaseModel):
+    raw_text: str
+    filename: str
+
 class WorkoutSetOut(BaseModel):
     id: int
     exercise_id: int

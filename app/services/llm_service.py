@@ -169,6 +169,99 @@ def parse_workout_from_text(raw_text: str) -> dict:
         print(f"❌ Erro OCR: {e}")
         return {"workouts": []}
 
+def parse_reference_and_generate(raw_text: str, request_data: dict) -> dict:
+    """
+    Usa uma tabela de referência (extraída via OCR de outro app/planilha de treino) como
+    base/estilo para remontar de 1 a N treinos, seguindo o perfil do professor e a
+    metodologia de 3 blocos já obrigatória no app. A referência usa rótulos de coluna
+    (Apelido, Acessório, Método) com significado DIFERENTE do JSON de saída deste app
+    (nickname=intensidade/RPE, accessory=descanso, method=cadência) — o prompt abaixo
+    instrui a tradução explícita entre os dois vocabulários.
+    """
+    try:
+        goal = request_data.get('goal', 'hipertrofia').lower()
+        goal_rule = GOAL_RULES.get(goal, GOAL_RULES["hipertrofia"])
+        days = request_data.get('days_per_week', 1)
+
+        prof_info = ""
+        if request_data.get('professor_name'):
+            prof_info += f"Treinador: {request_data['professor_name']}\n"
+        if request_data.get('specialization'):
+            prof_info += f"Especialização: {request_data['specialization']}\n"
+        if request_data.get('training_philosophy'):
+            prof_info += f"Filosofia: {request_data['training_philosophy']}\n"
+        if request_data.get('preferred_methods'):
+            prof_info += f"Métodos: {request_data['preferred_methods']}\n"
+        if request_data.get('rest_time'):
+            prof_info += f"Descanso Padrão: {request_data['rest_time']}\n"
+
+        prof_block = f"👨‍🏫 CONTEXTO DO PROFISSIONAL:\n{prof_info}" if prof_info else ""
+        instr_block = f"⚠️ INSTRUÇÕES ESPECÍFICAS: {request_data.get('custom_instructions')}" if request_data.get('custom_instructions') else ""
+
+        reference_block = f"""
+📋 TABELA DE REFERÊNCIA (extraída via OCR de outra planilha/software de treino — pode ter ruído de leitura):
+---
+{raw_text}
+---
+
+⚠️ TRADUÇÃO OBRIGATÓRIA DE TERMINOLOGIA (a referência usa rótulos DIFERENTES do seu JSON de saída — NÃO copie literalmente):
+- "Exercício" (nome-base, ex: "SUPINO") + "Apelido" da referência (VARIANTE do exercício, ex: "INCLINADO" — NÃO é intensidade/RPE)
+  → combine os dois em "name" da saída (ex: "Supino Inclinado").
+- "Equipamento" (ex: "HALTER") + "Acessório" da referência (acessório FÍSICO usado, ex: "BANCO INCLINADO", "PESO CORPORAL" — NÃO é tempo de descanso)
+  → combine os dois em "equipment" da saída (ex: "Halter + Banco Inclinado").
+- "Método" da referência mistura esquema de séries/técnica com contagem (ex: "PIRÂMIDE TRUNCADA CRESCENTE 12-10-8",
+  "MÚLTIPLAS SÉRIES 3x12 REPS.", "ISOMETRIA 1x30 S", "SÉRIE SIMPLES 1x20 REPS."):
+  → Extraia "sets" e "reps" como NÚMEROS INTEIROS ÚNICOS (nunca intervalos) a partir do esquema.
+    Exemplos: "12-10-8" → sets=3, reps=10 (média); "3x12" → sets=3, reps=12; "1x30 S" (isometria) → sets=1, reps=30
+    (segundos sob tensão, já que o app não tem campo de tempo separado).
+  → Preserve a descrição do esquema dentro de "method" da saída (ex: "Pirâmide truncada crescente (12-10-8)"),
+    podendo complementar com a cadência/intenção de movimento adequada ao objetivo.
+- A referência NÃO tem colunas de intensidade/RPE nem de tempo de descanso.
+  → Preencha "nickname" (INTENSIDADE/RPE/%1RM) e "accessory" (TEMPO DE DESCANSO) exatamente como faria ao gerar um
+    treino do zero, seguindo o MAPEAMENTO OBRIGATÓRIO já descrito acima, com base no objetivo "{goal}".
+- Ignore a coluna "Vídeo" (irrelevante) e qualquer ruído típico de OCR (cabeçalhos repetidos, números de página, caracteres quebrados).
+"""
+
+        anamnese_prompt = f"""
+        CONTEXTO DO ATLETA:
+        - Objetivo: {goal_rule}
+        - Nível: {request_data.get('level', 'intermediário')}
+        - Frequência: {days} treino(s)
+
+        {prof_block}
+        {instr_block}
+
+        {reference_block}
+
+        TAREFA: Use os exercícios da tabela de referência acima como BASE/ESTILO (repertório de movimentos, equipamentos
+        e esquemas de séries) para remontar EXATAMENTE {days} treino(s) completos.
+        - Inclua os 3 Blocos obrigatórios (Warm-up/RAMP, Main Session, Cool-down) em cada treino — a referência raramente
+          traz aquecimento/volta à calma, então complemente com exercícios adequados.
+        - Mantenha-se fiel ao estilo/equipamentos da referência no Bloco 2 (Main Session); adapte séries/reps/intensidade
+          ao objetivo e nível informados.
+        - Preencha nickname com INTENSIDADE/RPE e method com CADÊNCIA/ESQUEMA (conforme tradução acima).
+        - "sets", "reps" e "weight_kg" DEVEM ser números únicos, nunca intervalos.
+        - Use o campo 'notes' para Alertas de Risco (lesão, overtraining), como de costume.
+        """
+
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": anamnese_prompt}
+            ],
+            temperature=0.4,
+            max_tokens=8192,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
+        if content:
+            return json.loads(content)
+        return {"workouts": []}
+    except Exception as e:
+        print(f"❌ Erro Extração de Referência: {e}")
+        return {"workouts": []}
+
 def generate_workout(request_data: dict) -> dict:
     try:
         goal = request_data.get('goal', 'hipertrofia').lower()
