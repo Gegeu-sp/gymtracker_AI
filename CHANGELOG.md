@@ -4,6 +4,9 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-07-26
 
+- **Correção**: a extração de referência estava gerando treinos praticamente idênticos à imagem enviada. Agora o prompt exige que cada exercício principal seja **substituído por um equivalente** (mesmo grupo muscular/padrão de movimento), gerando uma variação de verdade em vez de uma cópia.
+- **Nova funcionalidade**: controle de "Volume em relação à referência" (manter / aumentar / diminuir) na página de Extração.
+- **Melhoria**: botão de Baixar PDF adicionado direto nos resultados da página de Extração (antes só dava pra baixar pelo Histórico).
 - **Correção**: revisão de texto extraído por OCR agora aparece como tabela editável (Exercício, Apelido, Equipamento, Acessório, Método), no mesmo formato da planilha de referência, em vez de um bloco de texto solto.
 - **Correção**: a IA estava ignorando instruções específicas na página de Extração (ex: pedir "treino de peito" e receber exercícios de outros grupos musculares porque estavam na tabela de referência). O prompt agora deixa claro que a referência é um repertório/estilo, não uma lista obrigatória, e que as instruções do usuário definem quais exercícios entram.
 - **Melhoria**: nova etapa de IA (`structure_reference_table`) organiza o texto bruto do OCR em linhas e corrige erros óbvios de leitura (ex: "5UPIN0" → "Supino") usando conhecimento de nomes comuns de exercício.
