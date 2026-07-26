@@ -12,6 +12,8 @@ class Workout(Base):
     image_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     professor_profile: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Perfil do professor usado
+    live_session_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    live_session_finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     exercises: Mapped[List["Exercise"]] = relationship("Exercise", back_populates="workout", cascade="all, delete")
 
 class Exercise(Base):
@@ -26,7 +28,8 @@ class Exercise(Base):
     sets: Mapped[int] = mapped_column(Integer)
     reps: Mapped[int] = mapped_column(Integer)
     weight_kg: Mapped[float] = mapped_column(Float, default=0.0)
-    
+    rest_seconds_target: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Descanso alvo p/ cronômetro do modo ao vivo
+
     # Execução real e edição pré-salvamento
     actual_weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     actual_reps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -34,6 +37,10 @@ class Exercise(Base):
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False)
 
     workout: Mapped["Workout"] = relationship("Workout", back_populates="exercises")
+    # Nome diferente de "sets" (que já é a contagem prescrita) para registrar as séries individuais do modo ao vivo
+    logged_sets: Mapped[List["WorkoutSet"]] = relationship(
+        "WorkoutSet", back_populates="exercise", cascade="all, delete", order_by="WorkoutSet.set_number"
+    )
 
     @property
     def volume(self) -> float:
@@ -51,3 +58,17 @@ class WorkoutProgress(Base):
     actual_reps: Mapped[int] = mapped_column(Integer)
     actual_rpe: Mapped[float] = mapped_column(Float)
     suggested_weight_kg: Mapped[float] = mapped_column(Float)
+
+class WorkoutSet(Base):
+    """Série individual registrada durante o Modo Treino ao Vivo."""
+    __tablename__ = "workout_sets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    exercise_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercises.id"), index=True)
+    set_number: Mapped[int] = mapped_column(Integer)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    reps: Mapped[int] = mapped_column(Integer)
+    rpe: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    rest_seconds_actual: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    exercise: Mapped["Exercise"] = relationship("Exercise", back_populates="logged_sets")

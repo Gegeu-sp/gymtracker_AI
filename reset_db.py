@@ -19,12 +19,12 @@ for db_path in db_paths:
 print("\n🚀 Recriando o banco de dados com a nova estrutura...")
 try:
     from app.database import engine, Base
-    from app.models import Workout, Exercise, WorkoutProgress  # Importa os modelos para garantir o registro
-    
+    from app.models import Workout, Exercise, WorkoutProgress, WorkoutSet  # Importa os modelos para garantir o registro
+
     # Isso força a criação das tabelas com TODAS as colunas novas
     Base.metadata.create_all(bind=engine)
     print("✅ Banco de dados recriado com sucesso!")
-    print("✅ Novas colunas (actual_weight_kg, actual_reps, actual_rpe, is_edited) e tabela (workout_progress) criadas.")
+    print("✅ Tabelas workouts, exercises, workout_progress e workout_sets (Modo Treino ao Vivo) criadas.")
 
 except Exception as e:
     print(f"❌ Erro ao recriar o banco: {e}")

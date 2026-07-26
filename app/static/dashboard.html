@@ -90,6 +90,18 @@
         .edit-ex-row { background: var(--bg-dark); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr; gap: 10px; align-items: center; }
         .edit-ex-row input, .edit-ex-row select { font-size: 0.9rem; padding: 8px 10px; }
         .badge-safety { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-top: 5px; display: inline-block; }
+
+        /* Modo Treino ao Vivo */
+        .live-exercise-card { background: var(--bg-dark); border-left: 4px solid var(--accent); border-radius: 8px; padding: 16px; margin-bottom: 15px; }
+        .live-exercise-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .set-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .set-badge { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+        .set-badge.done { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
+        .live-set-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+        .live-set-form label { font-size: 0.75rem; margin-bottom: 4px; }
+        .live-set-form input { padding: 8px 10px; font-size: 0.9rem; }
+        .rest-timer-bar { margin-top: 10px; background: white; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; font-weight: 700; color: var(--warning); }
+        .rest-timer-bar.active { display: flex; }
     </style>
 </head>
 <body>
@@ -245,6 +257,24 @@
             <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary btn-sm" onclick="closeModal('executionModal')">Cancelar</button>
                 <button class="btn btn-sm btn-success" id="saveExecBtn" onclick="submitExecutionLog()">✅ Registrar Execução Real</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: MODO TREINO AO VIVO -->
+    <div class="modal-overlay" id="liveSessionModal">
+        <div class="modal-card" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>🔴 Treino ao Vivo</h3>
+                <button class="close-modal" onclick="closeModal('liveSessionModal')">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+                Registre cada série assim que completar. O cronômetro de descanso inicia automaticamente após cada série.
+            </p>
+            <div id="liveSessionContent"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('liveSessionModal')">Fechar (continuar depois)</button>
+                <button class="btn btn-sm btn-success" onclick="finishLiveSession()">🏁 Finalizar Treino</button>
             </div>
         </div>
     </div>
@@ -406,7 +436,8 @@
                         </div>
                         <div class="workout-actions">
                             <button class="btn btn-sm btn-secondary" onclick="openEditModal(${workout.id})">✏️ Editar Prescrição</button>
-                            <button class="btn btn-sm btn-success" onclick="openExecutionModal(${workout.id})">📝 Registrar Treino Real</button>
+                            <button class="btn btn-sm btn-accent" onclick="openLiveSessionModal(${workout.id})">🔴 Treino ao Vivo</button>
+                            <button class="btn btn-sm btn-success" onclick="openExecutionModal(${workout.id})">📝 Registrar Resumo</button>
                             <button class="btn btn-sm btn-warning" onclick="openProgressionModal(${workout.id})">📈 Verificar Progressão</button>
                             <button class="btn btn-sm btn-info" onclick="downloadWorkoutPDF(${workout.id})">📄 Baixar PDF</button>
                         </div>
@@ -615,6 +646,163 @@
 
                 content.innerHTML = html;
                 document.getElementById('progressionModal').classList.add('active');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // 4. MODO TREINO AO VIVO (séries individuais + cronômetro de descanso)
+        let liveSessionWorkoutId = null;
+        let liveSessionState = null;
+        const restTimers = {};
+
+        async function openLiveSessionModal(workoutId) {
+            liveSessionWorkoutId = workoutId;
+            try {
+                let response = await fetch(`/live-session/${workoutId}`);
+                if (!response.ok) throw new Error('Erro ao carregar sessão ao vivo.');
+                let state = await response.json();
+
+                if (!state.started_at) {
+                    response = await fetch(`/live-session/${workoutId}/start`, { method: 'POST' });
+                    if (!response.ok) throw new Error('Erro ao iniciar sessão ao vivo.');
+                    state = await response.json();
+                }
+
+                liveSessionState = state;
+                renderLiveSession();
+                document.getElementById('liveSessionModal').classList.add('active');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function getRestSecondsTarget(exercise) {
+            return exercise.rest_seconds_target || 90;
+        }
+
+        function renderLiveSession() {
+            const content = document.getElementById('liveSessionContent');
+            let html = '';
+
+            liveSessionState.exercises.forEach(ex => {
+                const doneCount = ex.completed_sets.length;
+                const target = ex.prescribed_sets;
+                const totalSlots = Math.max(target, doneCount);
+
+                let setsHtml = '';
+                for (let i = 1; i <= totalSlots; i++) {
+                    const loggedSet = ex.completed_sets.find(s => s.set_number === i);
+                    if (loggedSet) {
+                        const rpeStr = (loggedSet.rpe !== null && loggedSet.rpe !== undefined) ? ` (RPE ${loggedSet.rpe})` : '';
+                        setsHtml += `<span class="set-badge done">Série ${i}: ${loggedSet.weight_kg}kg x ${loggedSet.reps}${rpeStr}</span>`;
+                    } else {
+                        setsHtml += `<span class="set-badge">Série ${i}: pendente</span>`;
+                    }
+                }
+
+                html += `
+                    <div class="live-exercise-card" data-exercise-id="${ex.exercise_id}">
+                        <div class="live-exercise-header">
+                            <strong style="color: var(--primary);">${ex.exercise_name}</strong>
+                            <span class="detail-tag">${doneCount}/${target} séries • Alvo: ${ex.prescribed_reps} reps</span>
+                        </div>
+                        <div class="set-list">${setsHtml}</div>
+                        <div class="live-set-form">
+                            <div>
+                                <label>Carga (kg)</label>
+                                <input type="number" step="0.5" class="live-weight" value="${ex.prescribed_weight_kg}" min="0">
+                            </div>
+                            <div>
+                                <label>Reps</label>
+                                <input type="number" class="live-reps" value="${ex.prescribed_reps}" min="0">
+                            </div>
+                            <div>
+                                <label>RPE (opcional)</label>
+                                <input type="number" step="0.5" class="live-rpe" min="1.0" max="10.0" placeholder="1-10">
+                            </div>
+                            <button class="btn btn-sm btn-success" onclick="completeSet(${ex.exercise_id}, ${getRestSecondsTarget(ex)})">✅ Completar Série</button>
+                        </div>
+                        <div class="rest-timer-bar" id="restTimer-${ex.exercise_id}">
+                            <span>⏱️ Descanso</span>
+                            <span id="restTimerValue-${ex.exercise_id}">--</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = html;
+        }
+
+        async function completeSet(exerciseId, restSeconds) {
+            const card = document.querySelector(`.live-exercise-card[data-exercise-id="${exerciseId}"]`);
+            const weight = parseFloat(card.querySelector('.live-weight').value);
+            const reps = parseInt(card.querySelector('.live-reps').value);
+            const rpeRaw = card.querySelector('.live-rpe').value;
+            const rpe = rpeRaw ? parseFloat(rpeRaw) : null;
+
+            if (rpe !== null && (rpe < 1.0 || rpe > 10.0)) {
+                alert('O RPE deve estar entre 1.0 e 10.0.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/live-session/${liveSessionWorkoutId}/sets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exercise_id: exerciseId, weight_kg: weight, reps: reps, rpe: rpe })
+                });
+                if (!response.ok) throw new Error('Falha ao registrar série.');
+
+                const refreshed = await fetch(`/live-session/${liveSessionWorkoutId}`);
+                liveSessionState = await refreshed.json();
+                renderLiveSession();
+                startRestTimer(exerciseId, restSeconds);
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function startRestTimer(exerciseId, totalSeconds) {
+            const bar = document.getElementById(`restTimer-${exerciseId}`);
+            const valueEl = document.getElementById(`restTimerValue-${exerciseId}`);
+            if (!bar || !valueEl) return;
+
+            if (restTimers[exerciseId]) clearInterval(restTimers[exerciseId]);
+
+            let remaining = totalSeconds;
+            bar.classList.add('active');
+            valueEl.textContent = `${remaining}s`;
+
+            restTimers[exerciseId] = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(restTimers[exerciseId]);
+                    delete restTimers[exerciseId];
+                    valueEl.textContent = 'Pronto! 💪';
+                    setTimeout(() => bar.classList.remove('active'), 3000);
+                    return;
+                }
+                valueEl.textContent = `${remaining}s`;
+            }, 1000);
+        }
+
+        async function finishLiveSession() {
+            if (!liveSessionWorkoutId) return;
+            if (!confirm('Finalizar o treino ao vivo? Os dados de execução serão consolidados no histórico.')) return;
+
+            try {
+                const response = await fetch(`/live-session/${liveSessionWorkoutId}/finish`, { method: 'POST' });
+                if (!response.ok) throw new Error('Falha ao finalizar o treino ao vivo.');
+                const updatedWorkout = await response.json();
+
+                const idx = currentWorkoutsData.findIndex(w => w.id === updatedWorkout.id);
+                if (idx !== -1) currentWorkoutsData[idx] = updatedWorkout;
+
+                displayWorkouts(currentWorkoutsData);
+                closeModal('liveSessionModal');
+                liveSessionWorkoutId = null;
+                liveSessionState = null;
             } catch (err) {
                 alert(err.message);
             }
