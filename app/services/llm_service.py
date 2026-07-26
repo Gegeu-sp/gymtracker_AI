@@ -169,6 +169,50 @@ def parse_workout_from_text(raw_text: str) -> dict:
         print(f"❌ Erro OCR: {e}")
         return {"workouts": []}
 
+STRUCTURE_SYSTEM_PROMPT = """Você é um assistente de digitação especializado em fichas de treino de academia.
+
+Você recebe um texto bruto extraído via OCR de uma tabela de outro aplicativo/planilha de treino, com colunas:
+Exercício, Apelido (variação do exercício), Equipamento, Acessório (acessório físico), Método (esquema de séries/técnica).
+O texto pode estar desorganizado, com colunas fora de ordem ou linhas quebradas, por causa do OCR.
+
+TAREFA: Reconstrua a tabela original em uma lista JSON de linhas, uma por exercício, respeitando a ORDEM em que aparecem no texto.
+
+REGRAS:
+1. Cada linha deve ter exatamente estas chaves: "exercise", "nickname", "equipment", "accessory", "method".
+2. Corrija erros ÓBVIOS de OCR usando o contexto de nomes comuns de exercícios de musculação
+   (ex: "5UPIN0" → "Supino", "REM4DA" → "Remada", "0mbros" → "Ombros", letras/números trocados, caracteres soltos ou duplicados).
+3. NÃO invente informação que não está no texto. Se uma célula estiver vazia, ilegível ou ausente, use "" (string vazia).
+4. Ignore colunas irrelevantes (ex: checkbox de "Vídeo", números de página, cabeçalhos repetidos).
+5. Responda APENAS com JSON válido, sem markdown, no formato:
+{"rows": [{"exercise": "Supino", "nickname": "Inclinado", "equipment": "Halter", "accessory": "Banco Inclinado", "method": "Pirâmide truncada crescente 12-10-8"}]}
+"""
+
+def structure_reference_table(raw_text: str) -> list:
+    """
+    Converte o texto bruto do OCR em linhas estruturadas (Exercício/Apelido/Equipamento/
+    Acessório/Método), corrigindo erros óbvios de leitura, para exibição em tabela editável
+    na tela de revisão antes da geração dos treinos.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": STRUCTURE_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Texto bruto extraído via OCR:\n\n{raw_text}"}
+            ],
+            temperature=0.1,
+            max_tokens=4096,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
+        if content:
+            data = json.loads(content)
+            return data.get("rows", [])
+        return []
+    except Exception as e:
+        print(f"❌ Erro Estruturação de Referência: {e}")
+        return []
+
 def parse_reference_and_generate(raw_text: str, request_data: dict) -> dict:
     """
     Usa uma tabela de referência (extraída via OCR de outro app/planilha de treino) como
@@ -196,13 +240,24 @@ def parse_reference_and_generate(raw_text: str, request_data: dict) -> dict:
             prof_info += f"Descanso Padrão: {request_data['rest_time']}\n"
 
         prof_block = f"👨‍🏫 CONTEXTO DO PROFISSIONAL:\n{prof_info}" if prof_info else ""
-        instr_block = f"⚠️ INSTRUÇÕES ESPECÍFICAS: {request_data.get('custom_instructions')}" if request_data.get('custom_instructions') else ""
+        instr_block = f"🎯 INSTRUÇÕES ESPECÍFICAS DO PEDIDO (PRIORIDADE MÁXIMA): {request_data.get('custom_instructions')}" if request_data.get('custom_instructions') else ""
 
         reference_block = f"""
-📋 TABELA DE REFERÊNCIA (extraída via OCR de outra planilha/software de treino — pode ter ruído de leitura):
+📋 TABELA DE REFERÊNCIA (repertório de exercícios/equipamentos/estilo que o professor já usa — pode ter ruído de OCR):
 ---
 {raw_text}
 ---
+
+🚨 REGRA DE PRIORIDADE NA SELEÇÃO DE EXERCÍCIOS (MUITO IMPORTANTE, NÃO IGNORE):
+A tabela acima é um REPERTÓRIO/ESTILO de referência, NÃO uma lista obrigatória que precisa ser usada por inteiro.
+As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goal}" DEFINEM quais exercícios entram no treino.
+- Se as instruções pedirem um foco específico (ex: "treino de peito", "só membros inferiores", "sem agachamento"),
+  FILTRE a tabela: use no Bloco 2 (Main Session) SOMENTE os exercícios da referência que pertencem a esse foco.
+  NÃO inclua um exercício só porque ele está na tabela — isso é um erro grave.
+  Se a referência não tiver exercícios suficientes do grupo pedido, complemente com exercícios coerentes do mesmo
+  grupo muscular/objetivo, mantendo o estilo/equipamentos observados na referência.
+- Se as instruções NÃO especificarem um foco (pedido genérico), aí sim use o repertório completo da referência,
+  distribuindo os exercícios entre os {days} treino(s) pedidos.
 
 ⚠️ TRADUÇÃO OBRIGATÓRIA DE TERMINOLOGIA (a referência usa rótulos DIFERENTES do seu JSON de saída — NÃO copie literalmente):
 - "Exercício" (nome-base, ex: "SUPINO") + "Apelido" da referência (VARIANTE do exercício, ex: "INCLINADO" — NÃO é intensidade/RPE)
@@ -233,12 +288,12 @@ def parse_reference_and_generate(raw_text: str, request_data: dict) -> dict:
 
         {reference_block}
 
-        TAREFA: Use os exercícios da tabela de referência acima como BASE/ESTILO (repertório de movimentos, equipamentos
-        e esquemas de séries) para remontar EXATAMENTE {days} treino(s) completos.
+        TAREFA: Remonte EXATAMENTE {days} treino(s) completos, seguindo a REGRA DE PRIORIDADE NA SELEÇÃO DE EXERCÍCIOS
+        acima (as instruções específicas do pedido mandam mais que a tabela de referência inteira).
         - Inclua os 3 Blocos obrigatórios (Warm-up/RAMP, Main Session, Cool-down) em cada treino — a referência raramente
-          traz aquecimento/volta à calma, então complemente com exercícios adequados.
-        - Mantenha-se fiel ao estilo/equipamentos da referência no Bloco 2 (Main Session); adapte séries/reps/intensidade
-          ao objetivo e nível informados.
+          traz aquecimento/volta à calma, então complemente com exercícios adequados ao foco pedido.
+        - Mantenha-se fiel ao estilo/equipamentos da referência no Bloco 2 (Main Session), mas respeitando o filtro de
+          instruções específicas; adapte séries/reps/intensidade ao objetivo e nível informados.
         - Preencha nickname com INTENSIDADE/RPE e method com CADÊNCIA/ESQUEMA (conforme tradução acima).
         - "sets", "reps" e "weight_kg" DEVEM ser números únicos, nunca intervalos.
         - Use o campo 'notes' para Alertas de Risco (lesão, overtraining), como de costume.

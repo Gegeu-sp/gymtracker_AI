@@ -14,14 +14,20 @@ def client():
 def _fake_file():
     return {"file": ("referencia.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")}
 
-def test_ocr_preview_returns_raw_text(client, monkeypatch):
-    monkeypatch.setattr(extraction_router, "extract_text_from_image", lambda path: "SUPINO INCLINADO HALTER BANCO INCLINADO PIRÂMIDE 12-10-8")
+def test_ocr_preview_returns_structured_rows(client, monkeypatch):
+    monkeypatch.setattr(extraction_router, "extract_text_from_image", lambda path: "SUPIN0 INCLINADO HALTER BANCO INCLINADO PIRAMIDE 12-10-8")
+    monkeypatch.setattr(extraction_router, "structure_reference_table", lambda raw_text: [
+        {"exercise": "Supino", "nickname": "Inclinado", "equipment": "Halter", "accessory": "Banco Inclinado", "method": "Pirâmide truncada crescente 12-10-8"}
+    ])
 
     res = client.post("/extraction/ocr-preview", files=_fake_file())
     assert res.status_code == 200
     data = res.json()
     assert data["filename"] == "referencia.jpg"
-    assert "SUPINO" in data["raw_text"]
+    assert "SUPIN0" in data["raw_text"]
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["exercise"] == "Supino"
+    assert data["rows"][0]["nickname"] == "Inclinado"
 
 def test_ocr_preview_returns_400_for_short_text(client, monkeypatch):
     monkeypatch.setattr(extraction_router, "extract_text_from_image", lambda path: "abc")

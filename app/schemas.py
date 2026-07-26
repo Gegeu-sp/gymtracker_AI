@@ -93,9 +93,17 @@ class WorkoutGenerationRequest(BaseModel):
     rest_time: Optional[str] = None
     custom_instructions: Optional[str] = None
 
+class ReferenceRow(BaseModel):
+    exercise: str = ""
+    nickname: str = ""
+    equipment: str = ""
+    accessory: str = ""
+    method: str = ""
+
 class OcrPreviewOut(BaseModel):
     raw_text: str
     filename: str
+    rows: List[ReferenceRow] = []
 
 class WorkoutSetOut(BaseModel):
     id: int
