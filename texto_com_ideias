@@ -7,3 +7,5 @@ quero que aparece em lista que nem a imagem que subiu Exemplo:
 
 ❌ Erro Extração de Referência: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01jswpsx3mfjmtkrcfbjc9scx6` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 95919, Requested 4696. Please try again in 8m51.36s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 INFO:     127.0.0.1:59365 - "POST /extraction/generate HTTP/1.1" 500 Internal Server Error
+---
+https://github.com/rtk-ai/rtk
