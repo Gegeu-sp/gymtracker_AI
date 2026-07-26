@@ -1,12 +1,42 @@
 import os
+import re
 import json
-from groq import Groq
+from groq import Groq, RateLimitError as GroqRateLimitError
 from dotenv import load_dotenv
 
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
+
+class LLMRateLimitError(Exception):
+    """
+    Levantado quando a Groq recusa a chamada por limite de tokens/requisições atingido
+    (HTTP 429). Os routers capturam isso especificamente para devolver uma mensagem clara
+    ao usuário em vez do 500 genérico "Falha ao gerar treinos".
+    """
+    pass
+
+def _format_duration(seconds: float) -> str:
+    seconds = int(round(seconds))
+    minutes, secs = divmod(seconds, 60)
+    if minutes and secs:
+        return f"{minutes} min {secs}s"
+    if minutes:
+        return f"{minutes} min"
+    return f"{secs}s"
+
+def _build_rate_limit_message(e: Exception) -> str:
+    retry_seconds = None
+    match = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", str(e))
+    if match:
+        minutes = int(match.group(1)) if match.group(1) else 0
+        retry_seconds = minutes * 60 + float(match.group(2))
+
+    if retry_seconds:
+        return (f"⏳ Limite diário de tokens da IA (Groq) atingido. "
+                f"Tente novamente em ~{_format_duration(retry_seconds)}.")
+    return "⏳ Limite de uso da IA (Groq) atingido no momento. Tente novamente em alguns minutos."
 
 GOAL_RULES = {
     "hipertrofia": "HIPERTROFIA: Tensão mecânica + dano muscular. 3-5 séries, 6-12 reps, RPE 7-9, descanso 60-120s.",
@@ -165,6 +195,8 @@ def parse_workout_from_text(raw_text: str) -> dict:
         if content:
             return json.loads(content)
         return {"workouts": []}
+    except GroqRateLimitError as e:
+        raise LLMRateLimitError(_build_rate_limit_message(e)) from e
     except Exception as e:
         print(f"❌ Erro OCR: {e}")
         return {"workouts": []}
@@ -209,6 +241,8 @@ def structure_reference_table(raw_text: str) -> list:
             data = json.loads(content)
             return data.get("rows", [])
         return []
+    except GroqRateLimitError as e:
+        raise LLMRateLimitError(_build_rate_limit_message(e)) from e
     except Exception as e:
         print(f"❌ Erro Estruturação de Referência: {e}")
         return []
@@ -335,6 +369,8 @@ As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goa
         if content:
             return json.loads(content)
         return {"workouts": []}
+    except GroqRateLimitError as e:
+        raise LLMRateLimitError(_build_rate_limit_message(e)) from e
     except Exception as e:
         print(f"❌ Erro Extração de Referência: {e}")
         return {"workouts": []}
@@ -389,6 +425,8 @@ def generate_workout(request_data: dict) -> dict:
         if content:
             return json.loads(content)
         return {"workouts": []}
+    except GroqRateLimitError as e:
+        raise LLMRateLimitError(_build_rate_limit_message(e)) from e
     except Exception as e:
         print(f"❌ Erro Geração: {e}")
         return {"workouts": []}

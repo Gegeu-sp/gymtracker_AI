@@ -8,7 +8,7 @@ from ..schemas import (
     WorkoutCreate, WorkoutOut, WorkoutGenerationRequest,
     WorkoutEditRequest, WorkoutExecutionRequest, ExerciseProgressionOut
 )
-from ..services.llm_service import generate_workout
+from ..services.llm_service import generate_workout, LLMRateLimitError
 from ..services.progression_service import get_workout_progression_suggestions
 from ..services.workout_service import apply_execution_result, save_generated_workouts
 
@@ -30,7 +30,10 @@ def create_manual_workout(data: WorkoutCreate, db: Session = Depends(get_db)):
 @router.post("/generate", response_model=list[WorkoutOut])
 def generate_workout_endpoint(req: WorkoutGenerationRequest, db: Session = Depends(get_db)):
     request_dict = req.model_dump()
-    parsed = generate_workout(request_dict)
+    try:
+        parsed = generate_workout(request_dict)
+    except LLMRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
     prof_name = req.professor_name or "N/A"
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas import WorkoutOut, OcrPreviewOut, WorkoutGenerationRequest
 from ..services.ocr_service import extract_text_from_image
-from ..services.llm_service import parse_reference_and_generate, structure_reference_table
+from ..services.llm_service import parse_reference_and_generate, structure_reference_table, LLMRateLimitError
 from ..services.workout_service import save_generated_workouts
 
 router = APIRouter(prefix="/extraction", tags=["extraction"])
@@ -28,7 +28,11 @@ async def preview_reference_ocr(file: UploadFile = File(...)):
     if not raw_text or len(raw_text.strip()) < 10:
         raise HTTPException(status_code=400, detail="Imagem sem texto legível")
 
-    rows = structure_reference_table(raw_text)
+    try:
+        rows = structure_reference_table(raw_text)
+    except LLMRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+
     return {"raw_text": raw_text, "filename": file.filename, "rows": rows}
 
 @router.post("/generate", response_model=List[WorkoutOut])
@@ -67,7 +71,10 @@ def generate_from_reference(
     request_dict = req.model_dump()
     request_dict["volume_adjustment"] = volume_adjustment or "manter"
 
-    parsed = parse_reference_and_generate(raw_text, request_dict)
+    try:
+        parsed = parse_reference_and_generate(raw_text, request_dict)
+    except LLMRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
     prof_name = req.professor_name or "N/A"
     source_suffix = f" | Fonte: {filename}" if filename else ""
