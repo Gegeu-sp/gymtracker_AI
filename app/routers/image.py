@@ -1,5 +1,4 @@
 import os
-import re
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -7,31 +6,10 @@ from ..models import Workout, Exercise
 from ..schemas import WorkoutOut
 from ..services.ocr_service import extract_text_from_image
 from ..services.llm_service import parse_workout_from_text
+from ..services.workout_service import safe_int, safe_float
 from datetime import datetime
 
 router = APIRouter(prefix="/image", tags=["image"])
-
-def safe_int(value, default=3):
-    """Converte valor para int de forma segura, extraindo o primeiro número se for texto."""
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        if isinstance(value, str):
-            match = re.search(r'\d+', value)
-            if match:
-                return int(match.group())
-        return default
-
-def safe_float(value, default=0.0):
-    """Converte valor para float de forma segura."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        if isinstance(value, str):
-            match = re.search(r'\d+\.?\d*', value)
-            if match:
-                return float(match.group())
-        return default
 
 @router.post("/upload", response_model=WorkoutOut)
 async def upload_workout_image(file: UploadFile = File(...), db: Session = Depends(get_db)):

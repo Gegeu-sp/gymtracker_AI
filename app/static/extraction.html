@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Tracker AI - Extração de Referência</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #006494; --primary-light: #247BA0; --secondary: #1B98E0;
+            --accent: #FF6B6B; --bg-dark: #E8F1F2; --bg-card: #FFFFFF;
+            --text-primary: #006494; --text-secondary: #5A7A8C;
+            --border: #D1E3E8; --success: #2ECC71; --warning: #F39C12;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: var(--text-primary); min-height: 100vh; padding: 0; margin: 0; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 40px; padding: 30px 0; border-bottom: 2px solid rgba(255,255,255,0.2); }
+        header h1 { font-size: 2.4rem; margin-bottom: 10px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        header p { color: rgba(255,255,255,0.9); font-size: 1.05rem; }
+        .card { background: var(--bg-card); border-radius: 16px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .card h2 { color: var(--primary); margin-bottom: 20px; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--border); padding-bottom: 15px; }
+        .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--secondary); color: white; font-size: 0.85rem; font-weight: 800; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 12px 16px; background: var(--bg-dark); border: 2px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem; font-family: inherit; transition: all 0.3s ease; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--secondary); background: white; }
+        textarea { resize: vertical; min-height: 80px; }
+        #rawTextArea { min-height: 220px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { padding: 16px 32px; background: linear-gradient(135deg, var(--secondary) 0%, var(--primary-light) 100%); border: none; border-radius: 8px; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(27, 152, 224, 0.4); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-full { width: 100%; margin-top: 10px; }
+        .btn-accent { background: linear-gradient(135deg, var(--accent) 0%, #FF5252 100%); }
+        .upload-area { border: 3px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; background: var(--bg-dark); transition: all 0.3s ease; cursor: pointer; margin-bottom: 20px; }
+        .upload-area:hover { border-color: var(--secondary); background: rgba(27, 152, 224, 0.05); }
+        .upload-icon { font-size: 3rem; margin-bottom: 15px; }
+        .upload-text { color: var(--text-primary); font-weight: 600; margin-bottom: 8px; }
+        .upload-hint { color: var(--text-secondary); font-size: 0.85rem; }
+        #fileInput { display: none; }
+        .preview-container { display: none; margin-top: 20px; text-align: center; }
+        .preview-container.active { display: block; }
+        .preview-image { max-width: 100%; max-height: 220px; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; }
+        .hint-box { background: #fff8e1; border: 1px solid #ffe0b2; border-left: 5px solid #f57f17; padding: 12px 16px; border-radius: 6px; margin-bottom: 15px; font-size: 0.88rem; color: #6d4c00; }
+        .divider { height: 2px; background: var(--border); margin: 30px 0; }
+        .disabled-section { opacity: 0.5; pointer-events: none; }
+        .loading { display: none; text-align: center; padding: 40px 20px; }
+        .loading.active { display: block; }
+        .spinner { width: 44px; height: 44px; border: 4px solid var(--border); border-top-color: var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-message { background: #FEE2E2; border: 1px solid #FCA5A5; color: #DC2626; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; font-weight: 500; }
+        .error-message.active { display: block; }
+        .workout-day { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
+        .workout-day h3 { margin-bottom: 10px; font-size: 1.25rem; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .stat-item { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 1.6rem; font-weight: 800; color: white; }
+        .stat-label { font-size: 0.82rem; opacity: 0.9; margin-top: 5px; }
+        .exercise-list { margin-top: 15px; margin-bottom: 25px; }
+        .exercise-item { background: var(--bg-dark); border-left: 4px solid var(--secondary); border-radius: 8px; padding: 18px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 20px; }
+        .exercise-name { font-size: 1.08rem; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+        .exercise-details { display: flex; flex-wrap: wrap; gap: 10px; }
+        .detail-tag { background: white; color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; border: 1px solid var(--border); }
+        .detail-tag strong { color: var(--primary); }
+        .exercise-volume { background: linear-gradient(135deg, var(--success) 0%, #27AE60 100%); color: white; padding: 12px 20px; border-radius: 8px; text-align: center; min-width: 100px; display: flex; flex-direction: column; justify-content: center; }
+        .exercise-volume .value { font-size: 1.3rem; font-weight: 800; }
+        .actions-note { background: var(--bg-dark); border-radius: 8px; padding: 14px 18px; font-size: 0.88rem; color: var(--text-secondary); margin-top: 10px; }
+        .actions-note a { color: var(--primary); font-weight: 700; text-decoration: none; }
+        .actions-note a:hover { text-decoration: underline; }
+        footer { text-align: center; padding: 30px; color: rgba(255,255,255,0.8); border-top: 1px solid rgba(255,255,255,0.2); margin-top: 20px; }
+        footer a { color: white; text-decoration: none; font-weight: 600; margin: 0 15px; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖼️ Extração de Referência</h1>
+            <p>Suba a foto do modelo de treino que você já usa e a IA remonta de 1 a 6 treinos baseados nele</p>
+        </header>
+
+        <div class="card">
+            <h2><span class="step-badge">1</span> Enviar Imagem de Referência</h2>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">Clique ou arraste a foto/print do treino aqui</div>
+                <div class="upload-hint">Formatos: JPG, PNG | Máx: 10MB</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+            <div class="preview-container" id="previewContainer">
+                <img id="previewImage" class="preview-image" alt="Preview">
+                <button class="btn btn-accent btn-full" onclick="runOcrPreview()" id="ocrBtn">🔍 Extrair Texto (OCR)</button>
+            </div>
+            <div class="error-message" id="uploadError"></div>
+        </div>
+
+        <div class="loading" id="ocrLoading">
+            <div class="spinner"></div>
+            <p style="font-weight: 600; color: var(--primary);">Lendo a imagem...</p>
+        </div>
+
+        <div class="card disabled-section" id="reviewSection">
+            <h2><span class="step-badge">2</span> Revisar Texto Extraído</h2>
+            <div class="hint-box">⚠️ O OCR pode errar em tabelas densas (nomes de exercícios, números). Revise e corrija o texto abaixo antes de gerar os treinos.</div>
+            <textarea id="rawTextArea" placeholder="O texto extraído da imagem vai aparecer aqui..."></textarea>
+        </div>
+
+        <div class="card disabled-section" id="formSection">
+            <h2><span class="step-badge">3</span> Perfil do Professor & Objetivo</h2>
+            <div class="row">
+                <div class="form-group">
+                    <label for="professor_name">Nome do Professor</label>
+                    <input type="text" id="professor_name" placeholder="Ex: Prof. Carlos">
+                </div>
+                <div class="form-group">
+                    <label for="goal">Objetivo do Aluno</label>
+                    <select id="goal">
+                        <option value="hipertrofia">Hipertrofia</option>
+                        <option value="forca">Força Máxima</option>
+                        <option value="resistencia">Resistência</option>
+                        <option value="hiit">HIIT</option>
+                        <option value="funcional">Funcional</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group">
+                    <label for="level">Nível do Aluno</label>
+                    <select id="level">
+                        <option value="iniciante">Iniciante</option>
+                        <option value="intermediario">Intermediário</option>
+                        <option value="avancado">Avançado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="days_per_week">Quantos treinos remontar (1 a 6)</label>
+                    <select id="days_per_week">
+                        <option value="1">1 Treino</option>
+                        <option value="2">2 Treinos</option>
+                        <option value="3">3 Treinos</option>
+                        <option value="4">4 Treinos</option>
+                        <option value="5">5 Treinos</option>
+                        <option value="6">6 Treinos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="specialization">Especialização do Professor</label>
+                <input type="text" id="specialization" placeholder="Ex: Hipertrofia, Reabilitação, Crossfit">
+            </div>
+            <div class="form-group">
+                <label for="training_philosophy">Filosofia de Treino</label>
+                <textarea id="training_philosophy" placeholder="Ex: Foco em controle excêntrico, falha concêntrica apenas no último exercício."></textarea>
+            </div>
+            <div class="row">
+                <div class="form-group">
+                    <label for="preferred_methods">Métodos Preferidos</label>
+                    <input type="text" id="preferred_methods" placeholder="Ex: Drop-set, Bi-set, Rest-pause">
+                </div>
+                <div class="form-group">
+                    <label for="rest_time">Tempo de Descanso</label>
+                    <input type="text" id="rest_time" placeholder="Ex: 60-90 segundos">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="custom_instructions">Instruções Adicionais</label>
+                <textarea id="custom_instructions" placeholder="Ex: Manter os mesmos exercícios da referência, só ajustar carga."></textarea>
+            </div>
+            <button class="btn btn-full" id="generateBtn" onclick="generateFromReference()">🚀 Gerar Treinos a partir da Referência</button>
+            <div class="error-message" id="generateError"></div>
+        </div>
+
+        <div class="loading" id="generateLoading">
+            <div class="spinner"></div>
+            <p style="font-weight: 600; color: var(--primary);">A IA está remontando os treinos...</p>
+        </div>
+
+        <div id="resultsContainer"></div>
+
+        <footer>
+            <a href="/">🏠 Dashboard</a>
+            <a href="/workouts/view">📋 Histórico Completo</a>
+            <a href="/analytics/volume">📊 Gráficos</a>
+        </footer>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
+        uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--border)'; });
+        uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--border)'; if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); });
+
+        function handleFileSelect(event) { if (event.target.files[0]) handleFile(event.target.files[0]); }
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) { showUploadError('Apenas arquivos de imagem.'); return; }
+            if (file.size > 10 * 1024 * 1024) { showUploadError('Máximo 10MB.'); return; }
+            showUploadError('');
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('previewContainer').classList.add('active');
+                document.getElementById('uploadArea').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function runOcrPreview() {
+            if (!selectedFile) return;
+            showUploadError('');
+            document.getElementById('ocrBtn').disabled = true;
+            document.getElementById('ocrLoading').classList.add('active');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/extraction/ocr-preview', { method: 'POST', body: formData });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `Erro ${response.status}`);
+                }
+                const data = await response.json();
+                document.getElementById('rawTextArea').value = data.raw_text;
+                document.getElementById('reviewSection').classList.remove('disabled-section');
+                document.getElementById('formSection').classList.remove('disabled-section');
+            } catch (err) {
+                showUploadError(`Erro ao extrair texto: ${err.message}`);
+            } finally {
+                document.getElementById('ocrBtn').disabled = false;
+                document.getElementById('ocrLoading').classList.remove('active');
+            }
+        }
+
+        async function generateFromReference() {
+            const rawText = document.getElementById('rawTextArea').value;
+            if (!rawText || rawText.trim().length < 10) {
+                showGenerateError('Revise o texto extraído antes de gerar (mínimo 10 caracteres).');
+                return;
+            }
+
+            showGenerateError('');
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('generateLoading').classList.add('active');
+            document.getElementById('resultsContainer').innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('raw_text', rawText);
+            formData.append('filename', selectedFile ? selectedFile.name : '');
+            formData.append('professor_name', document.getElementById('professor_name').value || '');
+            formData.append('goal', document.getElementById('goal').value);
+            formData.append('level', document.getElementById('level').value);
+            formData.append('days_per_week', document.getElementById('days_per_week').value);
+            formData.append('specialization', document.getElementById('specialization').value || '');
+            formData.append('training_philosophy', document.getElementById('training_philosophy').value || '');
+            formData.append('preferred_methods', document.getElementById('preferred_methods').value || '');
+            formData.append('rest_time', document.getElementById('rest_time').value || '');
+            formData.append('custom_instructions', document.getElementById('custom_instructions').value || '');
+
+            try {
+                const response = await fetch('/extraction/generate', { method: 'POST', body: formData });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `Erro ${response.status}`);
+                }
+                const workouts = await response.json();
+                displayResults(workouts);
+            } catch (err) {
+                showGenerateError(`Erro ao gerar treinos: ${err.message}`);
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateLoading').classList.remove('active');
+            }
+        }
+
+        function displayResults(workouts) {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '';
+
+            workouts.forEach((workout, index) => {
+                const workoutDiv = document.createElement('div');
+                workoutDiv.className = 'card';
+
+                let exercisesHtml = '';
+                workout.exercises.forEach((exercise, exIndex) => {
+                    const exerciseVolume = exercise.sets * exercise.reps * (exercise.weight_kg || 0);
+                    exercisesHtml += `
+                        <div class="exercise-item">
+                            <div>
+                                <div class="exercise-name">${exIndex + 1}. ${exercise.name}</div>
+                                <div class="exercise-details">
+                                    ${exercise.nickname ? `<span class="detail-tag"><strong>Intensidade:</strong> ${exercise.nickname}</span>` : ''}
+                                    ${exercise.equipment ? `<span class="detail-tag"><strong>Equip:</strong> ${exercise.equipment}</span>` : ''}
+                                    ${exercise.method ? `<span class="detail-tag"><strong>Método:</strong> ${exercise.method}</span>` : ''}
+                                    <span class="detail-tag"><strong>Séries:</strong> ${exercise.sets}</span>
+                                    <span class="detail-tag"><strong>Reps:</strong> ${exercise.reps}</span>
+                                    <span class="detail-tag"><strong>Peso:</strong> ${exercise.weight_kg}kg</span>
+                                </div>
+                            </div>
+                            <div class="exercise-volume">
+                                <div class="value">${exerciseVolume.toLocaleString('pt-BR')}</div>
+                                <div class="label">kg</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                workoutDiv.innerHTML = `
+                    <div class="workout-day">
+                        <h3>📅 Treino ${index + 1}</h3>
+                        <p style="opacity: 0.9; font-size: 0.9rem;">${workout.notes || ''}</p>
+                        <div class="stats">
+                            <div class="stat-item"><div class="stat-value">${workout.total_exercises}</div><div class="stat-label">Exercícios</div></div>
+                            <div class="stat-item"><div class="stat-value">${workout.total_sets}</div><div class="stat-label">Séries</div></div>
+                            <div class="stat-item"><div class="stat-value">${workout.total_volume.toLocaleString('pt-BR')}</div><div class="stat-label">Volume (kg)</div></div>
+                        </div>
+                    </div>
+                    <div class="exercise-list">${exercisesHtml}</div>
+                    <div class="actions-note">
+                        💾 Treino salvo no histórico. Para editar, registrar execução, ver progressão, usar o Modo ao Vivo ou baixar PDF,
+                        acesse o <a href="/workouts/view" target="_blank">Histórico Completo</a> ou o <a href="/" target="_blank">Dashboard</a>.
+                    </div>
+                `;
+                container.appendChild(workoutDiv);
+            });
+        }
+
+        function showUploadError(message) {
+            const el = document.getElementById('uploadError');
+            if (message) { el.textContent = message; el.classList.add('active'); } else { el.classList.remove('active'); }
+        }
+
+        function showGenerateError(message) {
+            const el = document.getElementById('generateError');
+            if (message) { el.textContent = message; el.classList.add('active'); } else { el.classList.remove('active'); }
+        }
+    </script>
+</body>
+</html>

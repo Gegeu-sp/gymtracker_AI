@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse  # <-- CORREÇÃO AQUI (era FileResponse, não File)
 from .database import engine, Base, run_startup_migrations
-from .routers import workout, image, analytics, live_session
+from .routers import workout, image, analytics, live_session, extraction
 
 # Criar tabelas no banco de dados
 Base.metadata.create_all(bind=engine)
@@ -23,11 +23,17 @@ app.include_router(workout.router)
 app.include_router(image.router)
 app.include_router(analytics.router)
 app.include_router(live_session.router)
+app.include_router(extraction.router)
 
 # Rota principal: serve a Dashboard HTML
 @app.get("/")
 def dashboard():
     return FileResponse("app/static/dashboard.html")
+
+# Página de Extração de Referência (upload de imagem -> OCR -> IA remonta 1-6 treinos)
+@app.get("/extraction")
+def extraction_page():
+    return FileResponse("app/static/extraction.html")
 
 # Rota de verificação de saúde do sistema
 @app.get("/health")

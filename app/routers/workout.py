@@ -10,7 +10,7 @@ from ..schemas import (
 )
 from ..services.llm_service import generate_workout
 from ..services.progression_service import get_workout_progression_suggestions
-from ..services.workout_service import apply_execution_result
+from ..services.workout_service import apply_execution_result, save_generated_workouts
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -31,40 +31,16 @@ def create_manual_workout(data: WorkoutCreate, db: Session = Depends(get_db)):
 def generate_workout_endpoint(req: WorkoutGenerationRequest, db: Session = Depends(get_db)):
     request_dict = req.model_dump()
     parsed = generate_workout(request_dict)
-    
-    if "workouts" not in parsed or not parsed["workouts"]:
+
+    prof_name = req.professor_name or "N/A"
+
+    def build_notes(day_data: dict) -> str:
+        return f"🤖 Prof. {prof_name} | Objetivo: {req.goal.capitalize()} | Nível: {req.level.capitalize()}"
+
+    try:
+        return save_generated_workouts(db, parsed, build_notes, source="llm")
+    except ValueError:
         raise HTTPException(status_code=500, detail="Falha ao gerar treinos com LLM.")
-    
-    saved_workouts = []
-    
-    for day_data in parsed["workouts"]:
-        prof_name = req.professor_name or "N/A"
-        notes = f"🤖 Prof. {prof_name} | Objetivo: {req.goal.capitalize()} | Nível: {req.level.capitalize()}"
-            
-        workout = Workout(source="llm", notes=notes)
-        db.add(workout)
-        db.commit()
-        db.refresh(workout)
-        
-        for ex_data in day_data.get("exercises", []):
-            db.add(Exercise(
-                workout_id=workout.id,
-                name=ex_data.get("name", "Exercício"),
-                nickname=ex_data.get("nickname"),
-                equipment=ex_data.get("equipment"),
-                accessory=ex_data.get("accessory"),
-                method=ex_data.get("method"),
-                sets=int(ex_data.get("sets", 3)),
-                reps=int(ex_data.get("reps", 10)),
-                weight_kg=float(ex_data.get("weight_kg", 0) or 0),
-                is_edited=False
-            ))
-        db.commit()
-        
-        saved_workout = db.query(Workout).filter(Workout.id == workout.id).first()
-        saved_workouts.append(saved_workout)
-        
-    return saved_workouts
 
 @router.put("/{workout_id}/edit", response_model=WorkoutOut)
 def edit_workout_prescription(
