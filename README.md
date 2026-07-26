@@ -142,6 +142,12 @@ python -m pytest
 
 ---
 
+## 📅 Changelog
+
+O histórico de tudo que foi feito no projeto, com data, fica registrado em [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## 👤 Autor & Créditos
 
 Desenvolvido por **Argeu Rodrigues**, com apoio de **Claude Code (Anthropic)** no desenvolvimento e na arquitetura do projeto.
