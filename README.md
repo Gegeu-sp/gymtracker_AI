@@ -25,7 +25,8 @@ O **Gym Tracker AI** é uma plataforma completa desenvolvida para atletas, prati
   * **Bloco 2 (Main Session)**: Exercícios compostos e isolados principais com volume e carga calculados.
   * **Bloco 3 (Cool-down / Recovery)**: Volta à calma, respiração diafragmática e descompressão espinhal.
 * ✏️ **Edição Pré-Salvamento**: Ajuste fino de séries, repetições, carga sugerida e métodos de treinamento antes da confirmação final no histórico.
-* 📝 **Registro Real de Execução (Pós-Treino)**: Captura precisa dos dados executados na academia: Carga Real (kg), Repetições Reais e Percepção Subjetiva de Esforço (**RPE** na escala de 1.0 a 10.0).
+* 🔴 **Modo Treino ao Vivo**: Execução em tempo real na academia — registro série a série (carga, reps e RPE individuais), cronômetro automático de descanso entre séries e checklist de progresso por exercício. Ao finalizar, consolida os dados no histórico e na sobrecarga progressiva.
+* 📝 **Registro Real de Execução (Pós-Treino)**: Captura precisa dos dados executados na academia: Carga Real (kg), Repetições Reais e Percepção Subjetiva de Esforço (**RPE** na escala de 1.0 a 10.0). Alternativa em formato resumido para quem prefere registrar tudo de uma vez, depois do treino.
 * 📈 **Sobrecarga Progressiva Automática**: Algoritmo que analisa o histórico recente de RPE e desempenho real para sugerir incrementos estratégicos (+2.5kg em isolados / +5.0kg em compostos) com **trava de segurança de 120%**.
 * 📄 **Exportação de PDF Print-Friendly**: Geração instantânea de fichas de treino limpas em PDF formatadas em A4 para impressão física, com colunas para anotação a caneta/lápis e destaque para alertas de risco do treinador.
 * 📊 **Analytics e Gráficos de Volume**: Dashboard visual para monitoramento do volume total acumulado (séries x repetições x carga).
@@ -64,10 +65,12 @@ gym-tracker/
 │   ├── routers/
 │   │   ├── workout.py           # Endpoints de treino, edição, registro real, PDF e visualizações
 │   │   ├── image.py             # Endpoint de Upload e OCR de imagem
-│   │   └── analytics.py         # Endpoints de gráficos de evolução
+│   │   ├── analytics.py         # Endpoints de gráficos de evolução
+│   │   └── live_session.py      # Endpoints do Modo Treino ao Vivo (séries individuais)
 │   ├── services/
 │   │   ├── llm_service.py       # Integração com Groq LLM e prompts metodológicos
-│   │   └── progression_service.py # Algoritmo de Sobrecarga Progressiva e Trava de 120%
+│   │   ├── progression_service.py # Algoritmo de Sobrecarga Progressiva e Trava de 120%
+│   │   └── workout_service.py   # Lógica compartilhada de aplicação de execução real
 │   └── static/
 │       └── dashboard.html       # Painel Web interativo da aplicação
 ├── specs/                       # Especificações técnicas e planos Speckit

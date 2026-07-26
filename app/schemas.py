@@ -93,6 +93,58 @@ class WorkoutGenerationRequest(BaseModel):
     rest_time: Optional[str] = None
     custom_instructions: Optional[str] = None
 
+class WorkoutSetOut(BaseModel):
+    id: int
+    exercise_id: int
+    set_number: int
+    weight_kg: float
+    reps: int
+    rpe: Optional[float] = None
+    completed_at: datetime
+    rest_seconds_actual: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+class LiveSetLogRequest(BaseModel):
+    exercise_id: int
+    weight_kg: float
+    reps: int
+    rpe: Optional[float] = None
+    rest_seconds_actual: Optional[int] = None
+
+    @field_validator('rpe')
+    @classmethod
+    def validate_rpe(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not (1.0 <= v <= 10.0):
+            raise ValueError('O RPE percebido deve estar entre 1.0 e 10.0')
+        return v
+
+    @field_validator('weight_kg', 'reps')
+    @classmethod
+    def validate_non_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError('Valores de carga e repetições não podem ser negativos')
+        return v
+
+class LiveExerciseStateOut(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    prescribed_sets: int
+    prescribed_reps: int
+    prescribed_weight_kg: float
+    rest_seconds_target: Optional[int] = None
+    completed_sets: List[WorkoutSetOut] = []
+
+    class Config:
+        from_attributes = True
+
+class LiveSessionStateOut(BaseModel):
+    workout_id: int
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    exercises: List[LiveExerciseStateOut]
+
 class WorkoutOut(BaseModel):
     id: int
     date: datetime

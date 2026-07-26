@@ -3,15 +3,14 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from ..models import Workout, Exercise, WorkoutProgress
+from ..models import Workout, Exercise
 from ..schemas import (
     WorkoutCreate, WorkoutOut, WorkoutGenerationRequest,
     WorkoutEditRequest, WorkoutExecutionRequest, ExerciseProgressionOut
 )
 from ..services.llm_service import generate_workout
-from ..services.progression_service import (
-    get_workout_progression_suggestions, calculate_exercise_progression
-)
+from ..services.progression_service import get_workout_progression_suggestions
+from ..services.workout_service import apply_execution_result
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -126,29 +125,12 @@ def log_workout_execution(
         if not ex:
             continue
 
-        ex.actual_weight_kg = exec_item.actual_weight_kg
-        ex.actual_reps = exec_item.actual_reps
-        ex.actual_rpe = exec_item.actual_rpe
-
-        # Calcula a próxima carga sugerida para registrar no histórico de evolução
-        prog = calculate_exercise_progression(
-            exercise_id=ex.id,
-            exercise_name=ex.name,
-            target_reps=ex.reps,
-            base_weight_kg=ex.weight_kg,
-            last_actual_weight_kg=exec_item.actual_weight_kg,
-            last_actual_reps=exec_item.actual_reps,
-            last_actual_rpe=exec_item.actual_rpe
-        )
-
-        progress_entry = WorkoutProgress(
-            exercise_name=ex.name,
+        apply_execution_result(
+            db, ex,
             actual_weight_kg=exec_item.actual_weight_kg,
             actual_reps=exec_item.actual_reps,
-            actual_rpe=exec_item.actual_rpe,
-            suggested_weight_kg=prog.suggested_weight_kg
+            actual_rpe=exec_item.actual_rpe
         )
-        db.add(progress_entry)
 
     db.commit()
     db.refresh(workout)
