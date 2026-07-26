@@ -5,7 +5,7 @@ from ..database import get_db
 from ..models import Workout, Exercise
 from ..schemas import WorkoutOut
 from ..services.ocr_service import extract_text_from_image
-from ..services.llm_service import parse_workout_from_text
+from ..services.llm_service import parse_workout_from_text, LLMRateLimitError
 from ..services.workout_service import safe_int, safe_float
 from datetime import datetime
 
@@ -93,6 +93,8 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
         
     except HTTPException:
         raise
+    except LLMRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         print(f"❌ ERRO NO UPLOAD: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")

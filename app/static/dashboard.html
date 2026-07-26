@@ -333,7 +333,10 @@
 
             try {
                 const response = await fetch('/image/upload', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `Erro: ${response.status}`);
+                }
                 const workout = await response.json();
                 currentWorkoutsData = [workout];
                 displayWorkouts(currentWorkoutsData);
@@ -375,7 +378,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData)
                 });
-                if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `Erro: ${response.status}`);
+                }
                 currentWorkoutsData = await response.json();
                 displayWorkouts(currentWorkoutsData);
             } catch (error) {

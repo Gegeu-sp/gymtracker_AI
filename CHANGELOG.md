@@ -4,6 +4,7 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-07-26
 
+- **Correção**: erro 429 da Groq (limite diário de tokens atingido) aparecia como um 500 genérico "Falha ao gerar treinos", sem explicar o motivo real. Agora o app detecta esse erro especificamente e mostra uma mensagem clara ("Limite diário de tokens da IA atingido, tente novamente em ~X min"), tanto no Dashboard quanto na Extração de Referência.
 - **Documentação**: novo [EXEMPLOS_PROMPTS.md](EXEMPLOS_PROMPTS.md) com exemplos prontos de como preencher Especialização do Professor, Filosofia de Treino e Instruções Adicionais.
 - **Correção**: a extração de referência estava gerando treinos praticamente idênticos à imagem enviada. Agora o prompt exige que cada exercício principal seja **substituído por um equivalente** (mesmo grupo muscular/padrão de movimento), gerando uma variação de verdade em vez de uma cópia.
 - **Nova funcionalidade**: controle de "Volume em relação à referência" (manter / aumentar / diminuir) na página de Extração.
