@@ -121,6 +121,7 @@ GESTÃO DE RISCO (Passo D) - Use o campo "notes" do treino:
 Inclua alertas como:
 - "⚠️ Se dor articular > RPE 3, substitua [exercício] por [variante segura]."
 - "🚨 Sinais de overtraining (insônia, queda de rendimento): reduzir volume 30-50% (Deload)."
+Seja direto: no máximo 2 frases curtas, sem repetir informação que já está nos campos dos exercícios.
 
 ────────────────────────────
 REGRAS CRÍTICAS DE FORMATAÇÃO:
@@ -130,6 +131,8 @@ REGRAS CRÍTICAS DE FORMATAÇÃO:
 2. NUNCA use 'null'. Use "" para strings vazias.
 3. "sets", "reps" e "weight_kg" DEVEM ser números únicos (4, 10, 60.0). NUNCA intervalos ("10-12").
 4. Se o usuário pedir N treinos, gere N objetos dentro de "workouts".
+5. Seja direto em todo campo de texto livre (name, method, notes): frases curtas, sem repetição, sem explicações
+   desnecessárias. Precisão técnica sim, enrolação não.
 
 FORMATO OBRIGATÓRIO DE RESPOSTA:
 {
