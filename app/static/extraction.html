@@ -25,7 +25,16 @@
         input, select, textarea { width: 100%; padding: 12px 16px; background: var(--bg-dark); border: 2px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem; font-family: inherit; transition: all 0.3s ease; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--secondary); background: white; }
         textarea { resize: vertical; min-height: 80px; }
-        #rawTextArea { min-height: 220px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; }
+        #referenceTable { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 700px; }
+        #referenceTable th { background: var(--bg-dark); color: var(--primary); text-align: left; padding: 10px 8px; font-size: 0.78rem; text-transform: uppercase; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        #referenceTable td { padding: 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        #referenceTable td:first-child { color: var(--text-secondary); font-weight: 700; text-align: center; width: 34px; padding-left: 8px; }
+        #referenceTable input { padding: 8px 10px; font-size: 0.85rem; background: white; }
+        #referenceTable td.row-actions { width: 40px; text-align: center; }
+        .row-remove-btn { background: none; border: none; color: var(--accent); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; }
+        .row-remove-btn:hover { color: #c0392b; }
+        .empty-rows-note { padding: 16px; text-align: center; color: var(--text-secondary); font-size: 0.9rem; }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .btn { padding: 16px 32px; background: linear-gradient(135deg, var(--secondary) 0%, var(--primary-light) 100%); border: none; border-radius: 8px; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(27, 152, 224, 0.4); }
@@ -101,8 +110,24 @@
 
         <div class="card disabled-section" id="reviewSection">
             <h2><span class="step-badge">2</span> Revisar Texto Extraído</h2>
-            <div class="hint-box">⚠️ O OCR pode errar em tabelas densas (nomes de exercícios, números). Revise e corrija o texto abaixo antes de gerar os treinos.</div>
-            <textarea id="rawTextArea" placeholder="O texto extraído da imagem vai aparecer aqui..."></textarea>
+            <div class="hint-box">⚠️ O OCR pode errar nomes de exercícios em tabelas densas. Revise e corrija célula por célula antes de gerar os treinos.</div>
+            <div class="table-wrap">
+                <table id="referenceTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Exercício</th>
+                            <th>Apelido</th>
+                            <th>Equipamento</th>
+                            <th>Acessório</th>
+                            <th>Método</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="referenceTableBody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-full" style="background: var(--bg-dark); color: var(--primary); border: 2px solid var(--border); text-transform: none; letter-spacing: 0;" onclick="addReferenceRow()">➕ Adicionar Exercício</button>
         </div>
 
         <div class="card disabled-section" id="formSection">
@@ -223,7 +248,7 @@
                     throw new Error(err.detail || `Erro ${response.status}`);
                 }
                 const data = await response.json();
-                document.getElementById('rawTextArea').value = data.raw_text;
+                renderReferenceTable(data.rows && data.rows.length ? data.rows : []);
                 document.getElementById('reviewSection').classList.remove('disabled-section');
                 document.getElementById('formSection').classList.remove('disabled-section');
             } catch (err) {
@@ -234,10 +259,64 @@
             }
         }
 
+        function renderReferenceTable(rows) {
+            const body = document.getElementById('referenceTableBody');
+            body.innerHTML = '';
+            if (!rows.length) {
+                addReferenceRow();
+                return;
+            }
+            rows.forEach(row => addReferenceRow(row));
+        }
+
+        function addReferenceRow(row) {
+            row = row || { exercise: '', nickname: '', equipment: '', accessory: '', method: '' };
+            const body = document.getElementById('referenceTableBody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="row-index"></td>
+                <td><input type="text" class="ref-exercise" value="${escapeAttr(row.exercise)}" placeholder="Ex: Supino"></td>
+                <td><input type="text" class="ref-nickname" value="${escapeAttr(row.nickname)}" placeholder="Ex: Inclinado"></td>
+                <td><input type="text" class="ref-equipment" value="${escapeAttr(row.equipment)}" placeholder="Ex: Halter"></td>
+                <td><input type="text" class="ref-accessory" value="${escapeAttr(row.accessory)}" placeholder="Ex: Banco Inclinado"></td>
+                <td><input type="text" class="ref-method" value="${escapeAttr(row.method)}" placeholder="Ex: Pirâmide 12-10-8"></td>
+                <td class="row-actions"><button type="button" class="row-remove-btn" onclick="this.closest('tr').remove(); reindexReferenceTable();" title="Remover linha">🗑️</button></td>
+            `;
+            body.appendChild(tr);
+            reindexReferenceTable();
+        }
+
+        function reindexReferenceTable() {
+            document.querySelectorAll('#referenceTableBody tr').forEach((tr, i) => {
+                tr.querySelector('.row-index').textContent = i + 1;
+            });
+        }
+
+        function escapeAttr(value) {
+            return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        function serializeReferenceTable() {
+            const rows = document.querySelectorAll('#referenceTableBody tr');
+            const lines = ['| Exercício | Apelido | Equipamento | Acessório | Método |'];
+            rows.forEach((tr, i) => {
+                const exercise = tr.querySelector('.ref-exercise').value.trim();
+                const nickname = tr.querySelector('.ref-nickname').value.trim();
+                const equipment = tr.querySelector('.ref-equipment').value.trim();
+                const accessory = tr.querySelector('.ref-accessory').value.trim();
+                const method = tr.querySelector('.ref-method').value.trim();
+                if (!exercise && !nickname && !equipment && !accessory && !method) return;
+                lines.push(`${i + 1}. ${exercise} | ${nickname} | ${equipment} | ${accessory} | ${method}`);
+            });
+            return lines.join('\n');
+        }
+
         async function generateFromReference() {
-            const rawText = document.getElementById('rawTextArea').value;
-            if (!rawText || rawText.trim().length < 10) {
-                showGenerateError('Revise o texto extraído antes de gerar (mínimo 10 caracteres).');
+            const rawText = serializeReferenceTable();
+            const hasAnyExercise = document.querySelectorAll('#referenceTableBody .ref-exercise').length > 0 &&
+                Array.from(document.querySelectorAll('#referenceTableBody .ref-exercise')).some(el => el.value.trim().length > 0);
+            if (!hasAnyExercise) {
+                showGenerateError('Revise a tabela e preencha pelo menos um exercício antes de gerar.');
                 return;
             }
 

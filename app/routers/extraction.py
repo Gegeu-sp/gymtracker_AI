@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas import WorkoutOut, OcrPreviewOut, WorkoutGenerationRequest
 from ..services.ocr_service import extract_text_from_image
-from ..services.llm_service import parse_reference_and_generate
+from ..services.llm_service import parse_reference_and_generate, structure_reference_table
 from ..services.workout_service import save_generated_workouts
 
 router = APIRouter(prefix="/extraction", tags=["extraction"])
@@ -28,7 +28,8 @@ async def preview_reference_ocr(file: UploadFile = File(...)):
     if not raw_text or len(raw_text.strip()) < 10:
         raise HTTPException(status_code=400, detail="Imagem sem texto legível")
 
-    return {"raw_text": raw_text, "filename": file.filename}
+    rows = structure_reference_table(raw_text)
+    return {"raw_text": raw_text, "filename": file.filename, "rows": rows}
 
 @router.post("/generate", response_model=List[WorkoutOut])
 def generate_from_reference(
