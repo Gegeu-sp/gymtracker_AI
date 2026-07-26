@@ -71,6 +71,40 @@ def test_generate_creates_workouts_matching_days_per_week(client, monkeypatch):
         assert "Extração de Referência" in w["notes"]
         assert "referencia.jpg" in w["notes"]
 
+def test_generate_passes_volume_adjustment_to_llm(client, monkeypatch):
+    """O controle de volume da UI (manter/aumentar/diminuir) precisa chegar até o prompt do LLM."""
+    captured = {}
+
+    def fake_llm(raw_text, request_data):
+        captured["volume_adjustment"] = request_data.get("volume_adjustment")
+        return _fake_parsed_workouts(1)
+
+    monkeypatch.setattr(extraction_router, "parse_reference_and_generate", fake_llm)
+
+    res = client.post("/extraction/generate", data={
+        "raw_text": "SUPINO INCLINADO HALTER BANCO INCLINADO PIRÂMIDE 12-10-8",
+        "days_per_week": "1",
+        "volume_adjustment": "aumentar",
+    })
+    assert res.status_code == 200
+    assert captured["volume_adjustment"] == "aumentar"
+
+def test_generate_defaults_volume_adjustment_to_manter(client, monkeypatch):
+    captured = {}
+
+    def fake_llm(raw_text, request_data):
+        captured["volume_adjustment"] = request_data.get("volume_adjustment")
+        return _fake_parsed_workouts(1)
+
+    monkeypatch.setattr(extraction_router, "parse_reference_and_generate", fake_llm)
+
+    res = client.post("/extraction/generate", data={
+        "raw_text": "SUPINO INCLINADO HALTER BANCO INCLINADO PIRÂMIDE 12-10-8",
+        "days_per_week": "1",
+    })
+    assert res.status_code == 200
+    assert captured["volume_adjustment"] == "manter"
+
 def test_generate_rejects_short_raw_text_without_calling_llm(client, monkeypatch):
     called = {"value": False}
 

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Tracker AI - Extração de Referência</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -132,6 +133,7 @@
 
         <div class="card disabled-section" id="formSection">
             <h2><span class="step-badge">3</span> Perfil do Professor & Objetivo</h2>
+            <div class="hint-box">🔄 A IA vai criar um treino <strong>novo</strong>, substituindo os exercícios da referência por equivalentes (mesmo grupo muscular/padrão de movimento) — não uma cópia. Use o volume e as instruções abaixo para controlar como.</div>
             <div class="row">
                 <div class="form-group">
                     <label for="professor_name">Nome do Professor</label>
@@ -168,6 +170,14 @@
                         <option value="6">6 Treinos</option>
                     </select>
                 </div>
+            </div>
+            <div class="form-group">
+                <label for="volume_adjustment">Volume em relação à referência</label>
+                <select id="volume_adjustment">
+                    <option value="manter">Manter o mesmo volume</option>
+                    <option value="aumentar">Aumentar volume (progressão)</option>
+                    <option value="diminuir">Reduzir volume (deload)</option>
+                </select>
             </div>
             <div class="form-group">
                 <label for="specialization">Especialização do Professor</label>
@@ -211,6 +221,7 @@
 
     <script>
         let selectedFile = null;
+        let currentResultsData = [];
 
         const uploadArea = document.getElementById('uploadArea');
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
@@ -337,6 +348,7 @@
             formData.append('preferred_methods', document.getElementById('preferred_methods').value || '');
             formData.append('rest_time', document.getElementById('rest_time').value || '');
             formData.append('custom_instructions', document.getElementById('custom_instructions').value || '');
+            formData.append('volume_adjustment', document.getElementById('volume_adjustment').value);
 
             try {
                 const response = await fetch('/extraction/generate', { method: 'POST', body: formData });
@@ -355,6 +367,7 @@
         }
 
         function displayResults(workouts) {
+            currentResultsData = workouts;
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '';
 
@@ -397,13 +410,163 @@
                         </div>
                     </div>
                     <div class="exercise-list">${exercisesHtml}</div>
+                    <button class="btn btn-full" style="background: linear-gradient(135deg, #0288d1 0%, #01579b 100%);" onclick="downloadWorkoutPDF(${workout.id})">📄 Baixar PDF</button>
                     <div class="actions-note">
-                        💾 Treino salvo no histórico. Para editar, registrar execução, ver progressão, usar o Modo ao Vivo ou baixar PDF,
+                        💾 Treino salvo no histórico. Para editar, registrar execução, ver progressão ou usar o Modo ao Vivo,
                         acesse o <a href="/workouts/view" target="_blank">Histórico Completo</a> ou o <a href="/" target="_blank">Dashboard</a>.
                     </div>
                 `;
                 container.appendChild(workoutDiv);
             });
+        }
+
+        // --- EXPORTAÇÃO PARA PDF (mesma lógica usada em dashboard.html) ---
+        function getWorkoutById(workoutId) {
+            return currentResultsData.find(w => w.id === workoutId);
+        }
+
+        async function downloadWorkoutPDF(workoutId) {
+            try {
+                const workout = getWorkoutById(workoutId);
+                if (!workout) { alert('Treino não encontrado para exportação em PDF.'); return; }
+
+                const dateStr = workout.date ? new Date(workout.date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+                const { block1, block2, block3 } = categorizeExercisesIntoBlocks(workout.exercises || []);
+
+                const tempContainer = document.createElement('div');
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.top = '-9999px';
+
+                const notesHtml = workout.notes ? `
+                    <div style="background: #fff8e1; border: 2px solid #ffe0b2; border-left: 6px solid #f57f17; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #e65100; font-size: 0.95rem; display: block; margin-bottom: 4px;">⚠️ OBSERVAÇÕES & ALERTAS DE RISCO DO TREINADOR:</strong>
+                        <span style="color: #424242; font-size: 0.9rem; font-weight: 500;">${workout.notes}</span>
+                    </div>
+                ` : '';
+
+                const block1Html = renderBlockTablePDF("🔥 BLOCO 1: PREPARAÇÃO E ATIVAÇÃO (WARM-UP / MOBILIDADE)", block1, "#e3f2fd", "#0d47a1");
+                const block2Html = renderBlockTablePDF("💪 BLOCO 2: SESSÃO PRINCIPAL (MAIN SESSION)", block2, "#e8f5e9", "#1b5e20");
+                const block3Html = renderBlockTablePDF("🧘 BLOCO 3: RETORNO À HOMEOSTASE (COOL-DOWN / RECOVERY)", block3, "#f3e5f5", "#4a148c");
+
+                tempContainer.innerHTML = `
+                    <div id="pdf-content-${workoutId}" style="padding: 25px; font-family: 'Segoe UI', Arial, sans-serif; background: #ffffff; color: #111111; max-width: 800px; margin: 0 auto; line-height: 1.4;">
+                        <div style="border-bottom: 3px solid #006494; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div>
+                                <h1 style="color: #006494; font-size: 1.8rem; margin: 0; font-weight: 800;">🏋️ Gym Tracker AI</h1>
+                                <p style="color: #555555; font-size: 0.95rem; margin: 4px 0 0 0; font-weight: 600;">Ficha de Prescrição & Acompanhamento de Treino</p>
+                            </div>
+                            <div style="text-align: right; font-size: 0.85rem; color: #444444;">
+                                <div><strong>Treino ID:</strong> #${workout.id}</div>
+                                <div><strong>Data:</strong> ${dateStr}</div>
+                                <div><strong>Origem:</strong> EXTRAÇÃO DE REFERÊNCIA</div>
+                            </div>
+                        </div>
+
+                        ${notesHtml}
+                        ${block1Html}
+                        ${block2Html}
+                        ${block3Html}
+
+                        <div style="margin-top: 25px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 0.75rem; color: #777; text-align: center;">
+                            Gym Tracker AI • Ficha Oficial de Treino • Gerado em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(tempContainer);
+                const element = document.getElementById(`pdf-content-${workoutId}`);
+
+                if (window.html2pdf) {
+                    const opt = {
+                        margin: [10, 10, 10, 10],
+                        filename: `Treino_${workout.id}_${dateStr.replace(/\//g, '-')}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+                    await html2pdf().set(opt).from(element).save();
+                } else {
+                    const printWin = window.open('', '_blank');
+                    printWin.document.write(`<html><head><title>Treino ${workout.id}</title></head><body>${element.innerHTML}</body></html>`);
+                    printWin.document.close();
+                    printWin.focus();
+                    printWin.print();
+                    printWin.close();
+                }
+
+                document.body.removeChild(tempContainer);
+            } catch (err) {
+                alert(`Erro ao gerar PDF: ${err.message}`);
+            }
+        }
+
+        function categorizeExercisesIntoBlocks(exercises) {
+            const block1 = [];
+            const block2 = [];
+            const block3 = [];
+
+            exercises.forEach(ex => {
+                const nameLower = (ex.name || '').toLowerCase();
+
+                if (nameLower.includes('bloco 1') || nameLower.includes('aquecimento') || nameLower.includes('mobilidade') || nameLower.includes('ativação') || nameLower.includes('warm-up') || nameLower.includes('warmup')) {
+                    block1.push(ex);
+                } else if (nameLower.includes('bloco 3') || nameLower.includes('volta à calma') || nameLower.includes('cool-down') || nameLower.includes('cooldown') || nameLower.includes('recovery') || nameLower.includes('descompressão') || nameLower.includes('respiração')) {
+                    block3.push(ex);
+                } else {
+                    block2.push(ex);
+                }
+            });
+
+            return { block1, block2, block3 };
+        }
+
+        function renderBlockTablePDF(title, exercises, headerBg, headerTextColor) {
+            if (!exercises || exercises.length === 0) return '';
+
+            let rowsHtml = '';
+            exercises.forEach((ex, idx) => {
+                const name = ex.name || 'Exercício';
+                const equip = ex.equipment ? ` <small style="color: #666;">(${ex.equipment})</small>` : '';
+                const setsReps = `${ex.sets}x ${ex.reps}`;
+                const weight = ex.weight_kg ? `${ex.weight_kg} kg` : '0.0 kg';
+                const method = ex.method || 'Tradicional';
+                const execInfo = (ex.actual_weight_kg !== null && ex.actual_weight_kg !== undefined)
+                    ? `${ex.actual_weight_kg}kg | ${ex.actual_reps}r | RPE ${ex.actual_rpe}`
+                    : '[ ___ kg | ___ reps | RPE ___ ]';
+
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 8px 10px; font-weight: 600; color: #222; font-size: 0.88rem;">${idx + 1}. ${name}${equip}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #006494; font-size: 0.88rem;">${setsReps}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #2e7d32; font-size: 0.88rem;">${weight}</td>
+                        <td style="padding: 8px 10px; font-size: 0.82rem; color: #555;">${method}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-size: 0.82rem; font-family: monospace; color: #444; background: #fafafa; border-left: 1px dashed #ccc;">${execInfo}</td>
+                    </tr>
+                `;
+            });
+
+            return `
+                <div style="margin-bottom: 20px; page-break-inside: avoid;">
+                    <div style="background: ${headerBg}; color: ${headerTextColor}; padding: 8px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 4px 4px 0 0; border: 1px solid #ddd; border-bottom: none;">
+                        ${title}
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #ddd; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd; color: #333; font-size: 0.8rem; text-transform: uppercase;">
+                                <th style="padding: 8px 10px; text-align: left;">Exercício</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 14%;">Séries x Reps</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 14%;">Carga Prescrita</th>
+                                <th style="padding: 8px 10px; text-align: left; width: 22%;">Método / Cadência</th>
+                                <th style="padding: 8px 10px; text-align: center; width: 24%;">Execução Real (Anotação)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
 
         function showUploadError(message) {
