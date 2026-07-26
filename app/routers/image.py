@@ -53,24 +53,34 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
         
         # 3. Interpretar com LLM
         parsed = parse_workout_from_text(raw_text)
-        
-        if not parsed.get("exercises"):
+
+        # O LLM sempre responde no formato {"workouts": [{"exercises": [...]}]},
+        # mesmo em parse_workout_from_text (mesmo SYSTEM_PROMPT usado por generate_workout).
+        day_data = (parsed.get("workouts") or [{}])[0]
+        exercises = day_data.get("exercises") or []
+
+        if not exercises:
             raise HTTPException(status_code=400, detail="Nenhum exercício encontrado na imagem")
-        
+
         # 4. Criar registro do treino
+        day_notes = day_data.get("notes")
+        notes = f"Extraído de: {file.filename}"
+        if day_notes:
+            notes += f"\n{day_notes}"
+
         workout = Workout(
             date=datetime.utcnow(),
             source="image",
             image_path=file_path,
-            notes=f"Extraído de: {file.filename}",
+            notes=notes,
             professor_profile=None
         )
         db.add(workout)
         db.commit()
         db.refresh(workout)
-        
+
         # 5. Criar os exercícios vinculados (com conversão segura)
-        for ex in parsed["exercises"]:
+        for ex in exercises:
             exercise = Exercise(
                 workout_id=workout.id,
                 name=ex.get("name", "Exercício"),
