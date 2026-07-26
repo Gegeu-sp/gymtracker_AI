@@ -242,22 +242,44 @@ def parse_reference_and_generate(raw_text: str, request_data: dict) -> dict:
         prof_block = f"👨‍🏫 CONTEXTO DO PROFISSIONAL:\n{prof_info}" if prof_info else ""
         instr_block = f"🎯 INSTRUÇÕES ESPECÍFICAS DO PEDIDO (PRIORIDADE MÁXIMA): {request_data.get('custom_instructions')}" if request_data.get('custom_instructions') else ""
 
+        volume_adjustment = (request_data.get('volume_adjustment') or 'manter').lower()
+        if volume_adjustment == 'aumentar':
+            volume_block = ("🔼 VOLUME: Aumente o volume total (séries x reps x carga) em relação à referência, de forma "
+                             "progressiva e segura — ex: +1 série em exercícios-chave, ou leve incremento de reps/carga. "
+                             "Não exagere: aumento moderado (10-20%), coerente com o nível informado.")
+        elif volume_adjustment == 'diminuir':
+            volume_block = ("🔽 VOLUME: Reduza o volume total (séries x reps) em relação à referência — ex: menos séries "
+                             "ou reps por exercício — mantendo a qualidade do estímulo para o objetivo pedido.")
+        else:
+            volume_block = "➡️ VOLUME: Mantenha o volume total (séries x reps) equivalente ao observado na referência."
+
         reference_block = f"""
-📋 TABELA DE REFERÊNCIA (repertório de exercícios/equipamentos/estilo que o professor já usa — pode ter ruído de OCR):
+📋 TABELA DE REFERÊNCIA (treino que o aluno JÁ EXECUTOU/CONHECE — usada como base de volume/estilo/equipamento, pode ter ruído de OCR):
 ---
 {raw_text}
 ---
 
-🚨 REGRA DE PRIORIDADE NA SELEÇÃO DE EXERCÍCIOS (MUITO IMPORTANTE, NÃO IGNORE):
-A tabela acima é um REPERTÓRIO/ESTILO de referência, NÃO uma lista obrigatória que precisa ser usada por inteiro.
-As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goal}" DEFINEM quais exercícios entram no treino.
+🚨 REGRA MAIS IMPORTANTE DESTA TAREFA — NÃO É PARA COPIAR:
+O objetivo NUNCA é devolver a mesma tabela reescrita. É criar um treino NOVO, uma VARIAÇÃO da referência, para o aluno
+não fazer sempre os mesmos exercícios. Para CADA exercício principal do Bloco 2 (Main Session):
+- SUBSTITUA por um exercício EQUIVALENTE — mesmo grupo muscular e padrão de movimento (empurrar/puxar/agachar/etc.),
+  equipamento similar ou disponível — mas DIFERENTE do exercício original da referência.
+  Exemplos de substituição válida: "Supino Reto com Barra" → "Supino Inclinado com Halteres" ou "Crucifixo na Máquina";
+  "Puxada Frontal" → "Remada Curvada" ou "Puxada Triângulo"; "Agachamento Livre" → "Leg Press 45°" ou "Hack Squat".
+- PROIBIDO usar o mesmo "Exercício" + "Apelido" da referência para o mesmo padrão de movimento no treino gerado —
+  isso seria copiar, não variar. Se não souber uma alternativa segura para algum exercício, escolha qualquer exercício
+  consagrado do mesmo grupo muscular, mesmo que não estivesse na tabela.
+- O volume (número de exercícios por grupo muscular, séries, estrutura geral) deve seguir a REGRA DE VOLUME abaixo.
+
+{volume_block}
+
+🎯 SELEÇÃO DE GRUPOS MUSCULARES/FOCO:
+As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goal}" DEFINEM quais grupos musculares entram.
 - Se as instruções pedirem um foco específico (ex: "treino de peito", "só membros inferiores", "sem agachamento"),
-  FILTRE a tabela: use no Bloco 2 (Main Session) SOMENTE os exercícios da referência que pertencem a esse foco.
-  NÃO inclua um exercício só porque ele está na tabela — isso é um erro grave.
-  Se a referência não tiver exercícios suficientes do grupo pedido, complemente com exercícios coerentes do mesmo
-  grupo muscular/objetivo, mantendo o estilo/equipamentos observados na referência.
-- Se as instruções NÃO especificarem um foco (pedido genérico), aí sim use o repertório completo da referência,
-  distribuindo os exercícios entre os {days} treino(s) pedidos.
+  gere substitutos SOMENTE dentro desse foco no Bloco 2 (Main Session). NÃO inclua exercícios de outros grupos
+  musculares só porque o grupo aparecia na referência — isso é um erro grave.
+- Se as instruções NÃO especificarem um foco (pedido genérico), use como referência de grupos musculares os que
+  aparecem na tabela, distribuindo as variações entre os {days} treino(s) pedidos.
 
 ⚠️ TRADUÇÃO OBRIGATÓRIA DE TERMINOLOGIA (a referência usa rótulos DIFERENTES do seu JSON de saída — NÃO copie literalmente):
 - "Exercício" (nome-base, ex: "SUPINO") + "Apelido" da referência (VARIANTE do exercício, ex: "INCLINADO" — NÃO é intensidade/RPE)
@@ -288,12 +310,12 @@ As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goa
 
         {reference_block}
 
-        TAREFA: Remonte EXATAMENTE {days} treino(s) completos, seguindo a REGRA DE PRIORIDADE NA SELEÇÃO DE EXERCÍCIOS
-        acima (as instruções específicas do pedido mandam mais que a tabela de referência inteira).
+        TAREFA: Crie EXATAMENTE {days} treino(s) NOVOS — uma VARIAÇÃO da referência, com exercícios SUBSTITUÍDOS
+        conforme a REGRA MAIS IMPORTANTE acima. Não devolva os mesmos exercícios da tabela.
         - Inclua os 3 Blocos obrigatórios (Warm-up/RAMP, Main Session, Cool-down) em cada treino — a referência raramente
           traz aquecimento/volta à calma, então complemente com exercícios adequados ao foco pedido.
-        - Mantenha-se fiel ao estilo/equipamentos da referência no Bloco 2 (Main Session), mas respeitando o filtro de
-          instruções específicas; adapte séries/reps/intensidade ao objetivo e nível informados.
+        - No Bloco 2 (Main Session), use exercícios SUBSTITUTOS (equivalentes, não literais) do estilo/equipamentos da
+          referência, respeitando o foco de grupos musculares e a regra de volume; adapte intensidade ao nível informado.
         - Preencha nickname com INTENSIDADE/RPE e method com CADÊNCIA/ESQUEMA (conforme tradução acima).
         - "sets", "reps" e "weight_kg" DEVEM ser números únicos, nunca intervalos.
         - Use o campo 'notes' para Alertas de Risco (lesão, overtraining), como de costume.

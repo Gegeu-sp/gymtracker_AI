@@ -44,11 +44,13 @@ def generate_from_reference(
     preferred_methods: Optional[str] = Form(None),
     rest_time: Optional[str] = Form(None),
     custom_instructions: Optional[str] = Form(None),
+    volume_adjustment: Optional[str] = Form("manter"),
     db: Session = Depends(get_db),
 ):
     """
-    Gera de 1 a `days_per_week` treinos usando a tabela de referência (texto de OCR já
-    revisado pelo usuário) como base/estilo, combinada com o perfil do professor/objetivo,
+    Gera de 1 a `days_per_week` treinos NOVOS (com exercícios substituídos por equivalentes)
+    usando a tabela de referência (texto de OCR já revisado pelo usuário) como base de volume/
+    estilo/equipamento — NÃO como cópia literal —, combinada com o perfil do professor/objetivo,
     seguindo a metodologia de 3 blocos. Retorna List[WorkoutOut] — mesmo schema de
     /workouts/generate, 100% compatível com edição/execução/PDF/live-session já existentes.
     """
@@ -62,7 +64,10 @@ def generate_from_reference(
         rest_time=rest_time, custom_instructions=custom_instructions,
     )
 
-    parsed = parse_reference_and_generate(raw_text, req.model_dump())
+    request_dict = req.model_dump()
+    request_dict["volume_adjustment"] = volume_adjustment or "manter"
+
+    parsed = parse_reference_and_generate(raw_text, request_dict)
 
     prof_name = req.professor_name or "N/A"
     source_suffix = f" | Fonte: {filename}" if filename else ""
