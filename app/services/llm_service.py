@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from functools import lru_cache
 from groq import Groq, RateLimitError as GroqRateLimitError
 from dotenv import load_dotenv
 
@@ -8,6 +9,19 @@ load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
+# Modelo menor/mais barato para tarefas de baixa complexidade (limpeza/estruturação de texto),
+# que também consome de um orçamento de tokens diário SEPARADO do MODEL na Groq — usar aqui
+# poupa tokens do MODEL principal, usado nas tarefas que realmente precisam de raciocínio maior.
+LIGHT_MODEL = "llama-3.1-8b-instant"
+
+def _estimate_max_tokens(days: int, base: int = 1200, per_day: int = 900, ceiling: int = 8192) -> int:
+    """
+    Calcula um teto de max_tokens proporcional ao número de treinos pedidos, em vez de sempre
+    reservar o teto máximo (8192). A Groq reserva o max_tokens solicitado ao verificar o limite
+    diário de tokens, então pedir só o necessário reduz a chance de bater o limite (TPD) sem
+    necessidade, mesmo quando a geração real usa bem menos que isso.
+    """
+    return min(ceiling, base + per_day * max(1, days))
 
 class LLMRateLimitError(Exception):
     """
@@ -58,9 +72,9 @@ Sua conduta é guiada por 5 pilares inegociáveis:
 4. Gerenciamento de Fadiga (Recovery): Descanso e restauração tecidual como partes ativas.
 5. Qualidade de Movimento (Biomecânica Limpa): Técnica perfeita precede a carga.
 
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 MAPEAMENTO OBRIGATÓRIO DOS CAMPOS DO JSON (DECORE E SIGA):
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 
 • "name"        → NOME TÉCNICO DO EXERCÍCIO (ex: "Agachamento Livre", "Bloco 1: Mobilidade de Quadril").
 • "nickname"    → INTENSIDADE / RPE / %1RM / %FCmáx. 
@@ -73,38 +87,18 @@ MAPEAMENTO OBRIGATÓRIO DOS CAMPOS DO JSON (DECORE E SIGA):
                   Exemplos: "3-0-X-0 (explosivo)", "4-2-1-0 (excêntrico lento)", "Isometria 3s", "AMRAP 20min", "Tabata 4min".
 • "equipment"   → EQUIPAMENTO UTILIZADO (ex: "Barra e Anilhas", "Elástico", "Nenhum").
 
-═══════════════════════════════════════════════════════════════
-EXEMPLOS DE PREENCHIMENTO POR OBJETIVO:
-═══════════════════════════════════════════════════════════════
+────────────────────────────
+EXEMPLOS DE PREENCHIMENTO POR OBJETIVO (nickname | accessory | method):
+────────────────────────────
+HIPERTROFIA: "RPE 8" | "90s" | "3-0-1-0 (controle excêntrico)"
+FORÇA MÁXIMA: "85% 1RM" | "3 min" | "X-0-1-0 (concêntrica explosiva)"
+HIIT: "90% FCmáx" | "15s" | "40s esforço / 15s descanso (Tabata)"
+LESÃO/REABILITAÇÃO: "RPE 4" | "60s" | "Isometria 5s + excêntrico 4s"
+CROSSFIT/WOD: "Rx" | "0s (sem descanso)" | "AMRAP 12min"
 
-HIPERTROFIA:
-  "nickname": "RPE 8"
-  "accessory": "90s"
-  "method": "3-0-1-0 (controle excêntrico)"
-
-FORÇA MÁXIMA:
-  "nickname": "85% 1RM"
-  "accessory": "3 min"
-  "method": "X-0-1-0 (concêntrica explosiva)"
-
-HIIT:
-  "nickname": "90% FCmáx"
-  "accessory": "15s"
-  "method": "40s esforço / 15s descanso (Tabata)"
-
-LESÃO/REABILITAÇÃO:
-  "nickname": "RPE 4"
-  "accessory": "60s"
-  "method": "Isometria 5s + excêntrico 4s"
-
-CROSSFIT/WOD:
-  "nickname": "Rx"
-  "accessory": "0s (sem descanso)"
-  "method": "AMRAP 12min"
-
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 ESTRUTURA OBRIGATÓRIA DA SESSÃO (3 BLOCOS):
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 
 Todo treino DEVE conter na lista "exercises":
 
@@ -120,17 +114,17 @@ BLOCO 3 - COOL-DOWN (Volta à Calma):
   - Relaxamento, respiração diafragmática, alongamento leve.
   - Use weight_kg: 0.0, nickname: "Recuperação", method: "Parassimpático".
 
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 GESTÃO DE RISCO (Passo D) - Use o campo "notes" do treino:
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 
 Inclua alertas como:
 - "⚠️ Se dor articular > RPE 3, substitua [exercício] por [variante segura]."
 - "🚨 Sinais de overtraining (insônia, queda de rendimento): reduzir volume 30-50% (Deload)."
 
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 REGRAS CRÍTICAS DE FORMATAÇÃO:
-═══════════════════════════════════════════════════════════════
+────────────────────────────
 
 1. Responda APENAS com JSON válido. Sem markdown, sem texto fora do JSON.
 2. NUNCA use 'null'. Use "" para strings vazias.
@@ -188,7 +182,7 @@ def parse_workout_from_text(raw_text: str) -> dict:
                 {"role": "user", "content": f"Extraia o treino da imagem/texto seguindo o mapeamento JSON (nickname=Intensidade/RPE, method=Cadência). Números únicos:\n\n{raw_text}"}
             ],
             temperature=0.2,
-            max_tokens=4096,
+            max_tokens=2048,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
@@ -219,21 +213,26 @@ REGRAS:
 {"rows": [{"exercise": "Supino", "nickname": "Inclinado", "equipment": "Halter", "accessory": "Banco Inclinado", "method": "Pirâmide truncada crescente 12-10-8"}]}
 """
 
+@lru_cache(maxsize=32)
 def structure_reference_table(raw_text: str) -> list:
     """
     Converte o texto bruto do OCR em linhas estruturadas (Exercício/Apelido/Equipamento/
     Acessório/Método), corrigindo erros óbvios de leitura, para exibição em tabela editável
     na tela de revisão antes da geração dos treinos.
+
+    Usa LIGHT_MODEL (menor/mais barato) — é uma tarefa de limpeza/reorganização de texto, não
+    exige o raciocínio do modelo principal — e é cacheada (@lru_cache): reenviar a mesma imagem/
+    texto (ex: usuário tenta de novo após um erro) não gasta tokens de novo.
     """
     try:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=LIGHT_MODEL,
             messages=[
                 {"role": "system", "content": STRUCTURE_SYSTEM_PROMPT},
                 {"role": "user", "content": f"Texto bruto extraído via OCR:\n\n{raw_text}"}
             ],
             temperature=0.1,
-            max_tokens=4096,
+            max_tokens=2048,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
@@ -362,7 +361,7 @@ As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goa
                 {"role": "user", "content": anamnese_prompt}
             ],
             temperature=0.4,
-            max_tokens=8192,
+            max_tokens=_estimate_max_tokens(days),
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
@@ -418,7 +417,7 @@ def generate_workout(request_data: dict) -> dict:
                 {"role": "user", "content": anamnese_prompt}
             ],
             temperature=0.7,
-            max_tokens=8192,
+            max_tokens=_estimate_max_tokens(days),
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
