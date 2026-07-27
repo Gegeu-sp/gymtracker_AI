@@ -2,7 +2,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from html import escape as escape_html
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -26,11 +27,12 @@ def _effective_reps(exercise: Exercise) -> int:
     return int(reps)
 
 
-def _effective_rpe(exercise: Exercise) -> float:
+def _effective_rpe(exercise: Exercise) -> Optional[float]:
+    """None quando o RPE nunca foi registrado — não deve ser confundido com um RPE real."""
     actual_rpe = getattr(exercise, "actual_rpe", None)
     if actual_rpe is not None and actual_rpe > 0:
         return float(actual_rpe)
-    return 8.0
+    return None
 
 
 def _resolve_muscle_group(exercise: Exercise) -> str:
@@ -40,39 +42,66 @@ def _resolve_muscle_group(exercise: Exercise) -> str:
     return get_muscle_group(exercise.name)
 
 
+def _is_main_block_exercise(exercise: Exercise) -> bool:
+    """
+    "Séries efetivas" (FR-002/FR-003) são só do Bloco 2 (sessão principal), excluindo
+    aquecimento/volta à calma — mesma heurística de nome usada em categorizeExercisesIntoBlocks
+    no dashboard.html/extraction.html, portada para o backend.
+    """
+    name = (exercise.name or "").lower()
+    warm_up_terms = ["bloco 1", "aquecimento", "mobilidade", "ativação", "ativacao", "warm-up", "warmup"]
+    cool_down_terms = ["bloco 3", "volta à calma", "volta a calma", "cool-down", "cooldown", "recovery", "descompressão", "descompressao", "respiração", "respiracao"]
+    if any(term in name for term in warm_up_terms):
+        return False
+    if any(term in name for term in cool_down_terms):
+        return False
+    return True
+
+
 def _estimate_e1rm(exercise: Exercise) -> float:
+    """
+    Epley ajustado por RPE/RIR (Helms/Zourdos): RIR = 10 - RPE reps "escondidas" são somadas
+    aos reps executados ANTES de aplicar Epley. RPE mais baixo (mais reps de reserva) resulta
+    em e1RM estimado MAIOR, não menor — o atleta poderia ter feito mais reps até a falha.
+    Sem RPE registrado, assume RIR=0 (equivalente a RPE 10, sem boost) — conservador, não
+    inventa um "RPE típico".
+    """
     weight = _effective_weight(exercise)
     reps = max(1, _effective_reps(exercise))
-    rpe = _effective_rpe(exercise)
     if weight <= 0:
         return 0.0
-    base_e1rm = weight * (1 + reps / 30.0)
-    if rpe <= 7.0:
-        return round(base_e1rm, 1)
-    adjustment = 1.0 / (1.0 + max(0.0, rpe - 7.0) / 10.0)
-    return round(base_e1rm * adjustment, 1)
+    rpe = _effective_rpe(exercise)
+    rir = max(0.0, 10.0 - rpe) if rpe is not None else 0.0
+    return round(weight * (1 + (reps + rir) / 30.0), 1)
 
 
 def _classify_push_pull(exercise: Exercise) -> tuple[str, int]:
+    if not _is_main_block_exercise(exercise):
+        return "", 0
     name = (exercise.name or "").lower()
     if any(term in name for term in ["supino", "peitoral", "crucifixo", "desenvolvimento", "tríceps", "triceps", "flexao", "mergulho", "coice"]):
         return "push", int(exercise.sets or 0)
-    if any(term in name for term in ["puxada", "remada", "terra", "barra fixa", "rosca", "pull", "lat", "barra"]):
+    if any(term in name for term in ["puxada", "remada", "terra", "deadlift", "barra fixa", "rosca", "pull", "lat"]):
         return "pull", int(exercise.sets or 0)
     return "", 0
 
 
 def _classify_quads_posterior(exercise: Exercise) -> tuple[str, int]:
+    if not _is_main_block_exercise(exercise):
+        return "", 0
     name = (exercise.name or "").lower()
     if any(term in name for term in ["agachamento", "squat", "extensora", "leg press", "afundo", "cadeira extensora", "cadeira adutora"]):
         return "quadriceps", int(exercise.sets or 0)
-    if any(term in name for term in ["flexora", "stiff", "terra", "remada", "hip thrust", "elevacao pelvica", "glute"]):
+    if any(term in name for term in ["flexora", "stiff", "terra", "deadlift", "hip thrust", "elevacao pelvica", "glute"]):
         return "posterior", int(exercise.sets or 0)
     return "", 0
 
 
-def build_performance_metrics(db: Session) -> Dict[str, Any]:
-    workouts = db.query(Workout).order_by(Workout.date).all()
+def build_performance_metrics(db: Session, student_name: Optional[str] = None) -> Dict[str, Any]:
+    query = db.query(Workout)
+    if student_name:
+        query = query.filter(Workout.student_name.ilike(student_name))
+    workouts = query.order_by(Workout.date).all()
     workouts = [w for w in workouts if w.exercises]
 
     e1rm_rows: List[Dict[str, Any]] = []
@@ -80,49 +109,53 @@ def build_performance_metrics(db: Session) -> Dict[str, Any]:
     session_rpe: List[Dict[str, Any]] = []
     weekly_sets_by_group: Dict[str, int] = {}
 
-    if workouts:
-        latest_date = max(w.date for w in workouts)
-        weekly_cutoff = latest_date - timedelta(days=7)
+    # Janela semanal a partir de AGORA (FR-002), não da data do último treino registrado —
+    # senão a "semana" desliza pra trás junto com o histórico e pode mascarar sub-treino real.
+    weekly_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
-        for workout in workouts:
-            session_tonnage_value = 0.0
-            session_rpe_values: List[float] = []
-            for exercise in workout.exercises:
-                effective_weight = _effective_weight(exercise)
-                effective_reps = max(1, _effective_reps(exercise))
-                effective_sets = max(1, int(getattr(exercise, "sets", 0) or 0))
-                session_tonnage_value += effective_sets * effective_reps * effective_weight
-                session_rpe_values.append(_effective_rpe(exercise))
+    for workout in workouts:
+        workout_date = workout.date if workout.date.tzinfo else workout.date.replace(tzinfo=timezone.utc)
+        session_tonnage_value = 0.0
+        session_rpe_values: List[float] = []
+        for exercise in workout.exercises:
+            effective_weight = _effective_weight(exercise)
+            effective_reps = max(1, _effective_reps(exercise))
+            effective_sets = max(1, int(getattr(exercise, "sets", 0) or 0))
+            session_tonnage_value += effective_sets * effective_reps * effective_weight
 
-                if workout.date >= weekly_cutoff:
-                    muscle_group = _resolve_muscle_group(exercise)
-                    weekly_sets_by_group[muscle_group] = weekly_sets_by_group.get(muscle_group, 0) + effective_sets
+            rpe = _effective_rpe(exercise)
+            if rpe is not None:
+                session_rpe_values.append(rpe)
 
-                if any(keyword in (exercise.name or "").lower() for keyword in ["supino", "agachamento", "terra", "deadlift", "squat", "bench"]):
-                    e1rm_value = _estimate_e1rm(exercise)
-                    if e1rm_value > 0:
-                        e1rm_rows.append({
-                            "date": workout.date,
-                            "exercise": exercise.name,
-                            "e1rm": round(e1rm_value, 1),
-                            "load_kg": round(effective_weight, 1),
-                            "rpe": round(_effective_rpe(exercise), 1),
-                        })
+            if _is_main_block_exercise(exercise) and workout_date >= weekly_cutoff:
+                muscle_group = _resolve_muscle_group(exercise)
+                weekly_sets_by_group[muscle_group] = weekly_sets_by_group.get(muscle_group, 0) + effective_sets
 
-            session_tonnage.append({
-                "date": workout.date,
+            if any(keyword in (exercise.name or "").lower() for keyword in ["supino", "agachamento", "terra", "deadlift", "squat", "bench"]):
+                e1rm_value = _estimate_e1rm(exercise)
+                if e1rm_value > 0:
+                    e1rm_rows.append({
+                        "date": workout_date,
+                        "exercise": exercise.name,
+                        "e1rm": e1rm_value,
+                        "load_kg": round(effective_weight, 1),
+                        "rpe": rpe,
+                    })
+
+        session_tonnage.append({
+            "date": workout_date,
+            "session": workout.notes or f"Treino {workout.id}",
+            "tonnage": round(session_tonnage_value, 1),
+        })
+
+        if session_rpe_values:
+            avg_rpe = round(sum(session_rpe_values) / len(session_rpe_values), 1)
+            session_rpe.append({
+                "date": workout_date,
                 "session": workout.notes or f"Treino {workout.id}",
-                "tonnage": round(session_tonnage_value, 1),
+                "average_rpe": avg_rpe,
+                "status": "ideal" if 7.0 <= avg_rpe <= 9.0 else "outside"
             })
-
-            if session_rpe_values:
-                avg_rpe = round(sum(session_rpe_values) / len(session_rpe_values), 1)
-                session_rpe.append({
-                    "date": workout.date,
-                    "session": workout.notes or f"Treino {workout.id}",
-                    "average_rpe": avg_rpe,
-                    "status": "ideal" if 7.0 <= avg_rpe <= 9.0 else "outside"
-                })
 
     weekly_volume = {}
     for group, sets in sorted(weekly_sets_by_group.items()):
@@ -163,40 +196,42 @@ def build_performance_metrics(db: Session) -> Dict[str, Any]:
     push_pull_ratio = round(push_sets / pull_sets, 2) if pull_sets else None
     quadriceps_posterior_ratio = round(quad_sets / posterior_sets, 2) if posterior_sets else None
 
+    # Faixa "saudável" 0.5-1.1: puxar até o dobro do que empurra é bom (protege ombro),
+    # só alerta quando o empurrar domina claramente (ex: 1:0.5 = ratio 2.0).
     balance = {
         "push_pull": {
             "ratio": push_pull_ratio,
             "push_sets": push_sets,
             "pull_sets": pull_sets,
-            "status": "ok" if push_pull_ratio is None or 0.8 <= push_pull_ratio <= 1.2 else "alert",
+            "status": "ok" if push_pull_ratio is None or 0.5 <= push_pull_ratio <= 1.1 else "alert",
         },
         "quadriceps_posterior": {
             "ratio": quadriceps_posterior_ratio,
             "quadriceps_sets": quad_sets,
             "posterior_sets": posterior_sets,
-            "status": "ok" if quadriceps_posterior_ratio is None or 0.8 <= quadriceps_posterior_ratio <= 1.2 else "alert",
+            "status": "ok" if quadriceps_posterior_ratio is None or 0.5 <= quadriceps_posterior_ratio <= 1.5 else "alert",
         },
     }
 
     fatigue = {"status": "green", "message": "✅ Recuperação adequada. Mantém o plano atual."}
-    if len(workouts) >= 2:
-        last_two = [w for w in workouts if w.date >= latest_date - timedelta(days=14)]
-        if len(last_two) >= 2:
-            recent_rpe = [entry for entry in session_rpe if entry["date"] >= latest_date - timedelta(days=14)]
-            if recent_rpe and recent_rpe[-1]["average_rpe"] >= 8.5 and recent_rpe[-1]["average_rpe"] > recent_rpe[0]["average_rpe"]:
-                fatigue = {"status": "yellow", "message": "⚠️ RPE médio subindo sem redução de carga. Avalie deload."}
+    if len(session_rpe) >= 2:
+        recent_rpe = session_rpe[-3:]
+        if len(recent_rpe) >= 2 and recent_rpe[-1]["average_rpe"] >= 8.5 and recent_rpe[-1]["average_rpe"] > recent_rpe[0]["average_rpe"]:
+            fatigue = {"status": "yellow", "message": "⚠️ RPE médio subindo sem redução de carga. Avalie deload."}
 
-        for compound in ["Supino", "Agachamento", "Terra"]:
-            history = [row for row in e1rm_rows if compound.lower() in (row["exercise"] or "").lower()]
-            if len(history) >= 2:
-                newest = history[-1]
-                previous = history[-2]
-                e1rm_delta = round(newest["e1rm"] - previous["e1rm"], 1)
-                load_delta = round(newest["load_kg"] - previous["load_kg"], 1)
-                rpe_delta = round(newest["rpe"] - previous["rpe"], 1)
-                if abs(e1rm_delta) <= 1.0 and rpe_delta >= 0.5 and abs(load_delta) <= 2.5:
-                    fatigue = {"status": "red", "message": f"🔴 {compound} estabilizou o e1RM com RPE crescente. Considere reduzir volume ou aplicar deload."}
-                    break
+    for compound in ["Supino", "Agachamento", "Terra"]:
+        history = [row for row in e1rm_rows if compound.lower() in (row["exercise"] or "").lower()]
+        if len(history) >= 3:
+            recent = history[-3:]
+            e1rm_values = [r["e1rm"] for r in recent]
+            load_values = [r["load_kg"] for r in recent]
+            rpe_values = [r["rpe"] for r in recent if r["rpe"] is not None]
+            e1rm_stagnant = (max(e1rm_values) - min(e1rm_values)) <= 1.5
+            load_stable = (max(load_values) - min(load_values)) <= 2.5
+            rpe_rising = len(rpe_values) >= 2 and rpe_values[-1] > rpe_values[0]
+            if e1rm_stagnant and load_stable and rpe_rising:
+                fatigue = {"status": "red", "message": f"🔴 {compound} estabilizou o e1RM com RPE crescente nas últimas 3 sessões. Considere reduzir volume ou aplicar deload."}
+                break
 
     return {
         "e1rm_trend": e1rm_rows,
@@ -208,8 +243,8 @@ def build_performance_metrics(db: Session) -> Dict[str, Any]:
     }
 
 
-def get_performance_dashboard(db: Session) -> str:
-    metrics = build_performance_metrics(db)
+def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -> str:
+    metrics = build_performance_metrics(db, student_name=student_name)
     e1rm_rows = metrics["e1rm_trend"]
     weekly_volume = metrics["weekly_volume"]
     session_tonnage = metrics["session_tonnage"]
@@ -267,6 +302,22 @@ def get_performance_dashboard(db: Session) -> str:
 
     fatigue_badge = f"<div class='metric-card'><h3>Semáforo de Fadiga</h3><div class='value'>{fatigue['status'].upper()}</div><p>{fatigue['message']}</p></div>"
 
+    all_students = [
+        r[0] for r in db.query(Workout.student_name)
+        .filter(Workout.student_name.isnot(None), Workout.student_name != "")
+        .distinct().order_by(Workout.student_name).all()
+    ]
+    student_options = "".join(
+        f'<option value="{escape_html(s)}"{" selected" if s == student_name else ""}>{escape_html(s)}</option>'
+        for s in all_students
+    )
+    student_selector = f"""
+        <select onchange="location.href='/analytics/performance' + (this.value ? '?student_name=' + encodeURIComponent(this.value) : '')" style="padding: 10px 16px; border-radius: 8px; border: none; font-size: 1rem;">
+            <option value="">👥 Todos os Alunos</option>
+            {student_options}
+        </select>
+    """
+
     return f"""
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -298,7 +349,8 @@ def get_performance_dashboard(db: Session) -> str:
                     <h1>🏋️ Painel de Performance</h1>
                     <p>KPIs automáticos para musculação, hipertrofia e prevenção de lesões.</p>
                 </div>
-                <div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    {student_selector}
                     <a href="/">⬅️ Dashboard</a>
                 </div>
             </div>
