@@ -41,4 +41,39 @@ Não espere o teste de força pra saber se funcionou. Os marcadores de progresso
 O ponto que amarra tudo: a maior parte do progresso real vem de você **medir a coisa certa e proteger os vitais poucos** — a força base subindo, o gargalo dominante encolhendo, a técnica ficando consistente sob carga. Volume de acessório, variação e otimização fina são a cauda longa: importam, mas não são onde o ponteiro anda.
 
 Se quiser, monto isso como um **painel de KPIs** — tipo um dashboard com essas razões diagnósticas calculando automaticamente (arranco/arremesso, lifts/agachamento, power/full), tendência de e1RM, IMR% do bloco e um sinalizador de gargalo dominante. Casaria direto com o que você já constrói em planilha e daria a leitura Pareto "onde alocar o próximo bloco" de forma visual. Me diz se topa e em que formato (Excel com fórmulas, ou algo no Flexi-Train).
+
 ---
+
+Excelente ajuste! A filosofia científica (Pareto, autoregulação, dados sobre "achismo") permanece exatamente a mesma, mas as variáveis e os diagnósticos mudam completamente.
+Na musculação (hipertrofia e força geral), não nos importamos com a velocidade da barra ou com a razão entre o Arranco e o Arremesso. O que dita o progresso é Tensão Mecânica, Volume Efetivo, Proximidade da Falha (RPE/RIR) e Gerenciamento de Fadiga.
+Aqui está a tradução exata desse painel de KPIs de alto nível, 100% voltado para Musculação e Hipertrofia:
+As Alavancas da Musculação (O "Pareto" do Hipertrofia)
+Você não "cresce o músculo" diretamente. Você manipula:
+Volume Efetivo: Séries próximas da falha (RPE 7-10).
+Sobrecarga Progressiva: Aumentar carga, reps ou melhorar a técnica ao longo do tempo.
+Frequência e Distribuição: Quantas vezes o músculo é estimulado na semana.
+Fadiga Gerenciada: Não fazer volume a ponto de atrapalhar a próxima sessão.
+📊 O Painel de KPIs para Musculação (O que vamos construir)
+1. Progressão de Força Base (e1RM nos Compostos)
+O que é: Gráfico de tendência do 1RM estimado (Epley ajustado por RPE) nos "Big 4" da musculação: Supino Reto, Agachamento, Levantamento Terra e Barra Fixa/Remada Curvada.
+O Diagnóstico: Se a reta está subindo, a tensão mecânica está progredindo. Se está plana, o atleta estagnou e precisa de um choque (mudança de método, ex: Drop-set) ou deload.
+2. Volume Semanal por Grupo Muscular (O Motor da Hipertrofia)
+O que é: Um gráfico de barras ou "Heatmap" mostrando quantas séries efetivas cada grupo muscular recebeu na última semana.
+O Diagnóstico (Pareto): A literatura mostra que o "ponto ideal" para hipertrofia é entre 10 a 20 séries semanais por músculo.
+Abaixo de 10: Volume insuficiente (o app avisa: "Aumente o volume de Peito").
+Acima de 20-25: "Lixo de volume" (Junk Volume). O app avisa: "Risco de overtraining em Costas, reduza 20%".
+3. Tonelagem Total (Volume Load) e Densidade
+O que é: Séries x Repetições x Carga (kg) por sessão.
+O Diagnóstico: Mostra se a capacidade de trabalho (work capacity) do atleta está aumentando. Se a tonelagem sobe com o mesmo RPE, a adaptação está ocorrendo.
+4. Razões de Equilíbrio Muscular (Detectando Gargalos e Lesões)
+Em vez de razões de LPO, usamos razões de simetria e saúde articular:
+Push/Pull Ratio (Empurrar vs. Puxar): Volume de Supino/Desenvolvimento ÷ Volume de Remada/Puxada.
+Ideal: 1:1 ou 1:1.5 (puxar um pouco mais). Se o ratio for 1:0.5 (muito empurrar, pouco puxar), o app dispara um alerta vermelho de risco de lesão no ombro.
+Quadríceps vs. Posteriores (Joelho Saudável): Volume de Extensora/Agachamento ÷ Volume de Mesa Flexora/Stiff.
+Ideal: Equilibrado. Se o posterior for muito fraco, alerta de risco para o LCA (Ligamento Cruzado Anterior).
+5. Intensidade de Esforço Médio (RPE Médio da Sessão)
+O que é: A média do RPE (Percepção Subjetiva de Esforço) registrado nas séries principais.
+O Diagnóstico: Para hipertrofia, o ideal é RPE 7 a 9 (sobra 1 a 3 reps no tanque). Se a média for RPE 5, o atleta está "passeando" na academia e não vai crescer, mesmo com muito volume.
+6. Semáforo de Fadiga (Gatilho de Deload Automático)
+O que é: O algoritmo cruza os dados. Se o atleta está mantendo o mesmo volume, mas o RPE médio subiu (ex: 100kg no supino semana passada era RPE 7, hoje é RPE 9) OU se a tonelagem caiu drasticamente sem motivo:
+O Diagnóstico: O app acende o ** Vermelho**: "Fadiga acumulada detectada. Seu sistema nervoso não está recuperando. Recomendação: Semana de Deload (reduza o volume em 40% e a carga em 10% na próxima semana)."
