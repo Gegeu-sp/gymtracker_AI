@@ -4,6 +4,15 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-07-27
 
+- **Correção**: revisão da implementação do Painel de KPIs de Performance (`/analytics/performance`, enviada em `f86fb3d`) contra a especificação e a lógica de treino/RPE, corrigindo 7 problemas:
+  - Filtro por aluno (FR-011) estava totalmente ausente — os KPIs somavam treinos de todos os alunos juntos. Agora `GET /analytics/performance?student_name=...` filtra os dados e a página tem um seletor de aluno.
+  - A fórmula de e1RM "ajustado por RPE" estava com a lógica invertida (reduzia o e1RM conforme o RPE subia). Corrigida para o ajuste padrão por RIR (repetições em reserva = 10 − RPE): quanto menor o RPE, maior o e1RM estimado, já que o atleta poderia ter feito mais reps até a falha.
+  - RPE não registrado virava silenciosamente "RPE 8.0" em vez de indicar "sem dados" — agora o RPE médio de sessão e o semáforo de fadiga mostram claramente quando não há dados suficientes.
+  - "Remada" (exercício de costas/puxada) estava sendo contado como posterior de coxa, distorcendo a razão Quadríceps/Posterior.
+  - A janela "semanal" usava a data do último treino registrado em vez da data atual, podendo mascarar sub-treino.
+  - O volume semanal somava séries de aquecimento/volta à calma junto com a sessão principal, em vez de só o bloco principal.
+  - A faixa "saudável" do Push/Pull Ratio era simétrica (0.8–1.2); ajustada para refletir que puxar um pouco mais que empurrar (até 1.5x) é desejável.
+  - Testes também corrigidos para seguir o padrão de isolamento do resto da suíte (fixture `scope="module"` sem `drop_all`) e ganharam um teste do endpoint HTTP com filtro por aluno.
 - **Documentação**: especificação (`specs/003-performance-kpi-dashboard/spec.md`, seguindo o processo Speckit já usado no projeto) do Painel de KPIs de Performance para musculação/hipertrofia — e1RM por composto, volume semanal por grupo muscular com alertas, tonelagem por sessão, razões de equilíbrio muscular (Push/Pull, Quadríceps/Posterior), RPE médio de sessão e semáforo de fadiga/deload, tudo por aluno. Só a especificação (o quê/porquê); a implementação em código é um próximo passo separado.
 - **Nova funcionalidade**: campo "Aluno" (tag leve, sem login) nos treinos — dá pra marcar de qual aluno é cada treino gerado (Dashboard, Extração de Referência, Upload de Imagem e criação manual), com autocomplete dos nomes já usados e filtro por aluno no Histórico (`/workouts/view`) e na listagem da API (`GET /workouts/?student_name=...`). Resolve o problema de todos os treinos ficarem misturados numa lista só quando o app é usado para mais de uma pessoa.
 - **Nova funcionalidade**: catálogo de exercícios (`app/services/exercise_catalog.py`), com ~50 exercícios comuns mapeados por nome canônico e grupo muscular. Resolve dois problemas de uma vez:
