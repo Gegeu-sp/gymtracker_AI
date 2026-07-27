@@ -3,6 +3,7 @@ from typing import Callable, List
 from sqlalchemy.orm import Session
 from ..models import Exercise, Workout, WorkoutProgress
 from .progression_service import calculate_exercise_progression
+from .exercise_catalog import get_muscle_group, get_canonical_name
 
 def safe_int(value, default=3):
     """Converte valor para int de forma segura, extraindo o primeiro número se for texto."""
@@ -49,9 +50,10 @@ def save_generated_workouts(
         db.refresh(workout)
 
         for ex_data in day_data.get("exercises", []):
+            name = ex_data.get("name", "Exercício")
             db.add(Exercise(
                 workout_id=workout.id,
-                name=ex_data.get("name", "Exercício"),
+                name=name,
                 nickname=ex_data.get("nickname"),
                 equipment=ex_data.get("equipment"),
                 accessory=ex_data.get("accessory"),
@@ -59,7 +61,8 @@ def save_generated_workouts(
                 sets=safe_int(ex_data.get("sets"), 3),
                 reps=safe_int(ex_data.get("reps"), 10),
                 weight_kg=safe_float(ex_data.get("weight_kg"), 0.0),
-                is_edited=False
+                is_edited=False,
+                muscle_group=get_muscle_group(name)
             ))
         db.commit()
         saved_workouts.append(db.query(Workout).filter(Workout.id == workout.id).first())
@@ -94,6 +97,7 @@ def apply_execution_result(
 
     db.add(WorkoutProgress(
         exercise_name=exercise.name,
+        canonical_name=get_canonical_name(exercise.name),
         actual_weight_kg=actual_weight_kg,
         actual_reps=actual_reps,
         actual_rpe=actual_rpe,

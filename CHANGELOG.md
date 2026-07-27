@@ -2,6 +2,13 @@
 
 Histórico de tudo que foi feito no projeto, da atualização mais recente para a mais antiga. Este arquivo é atualizado sempre que uma mudança é enviada ao repositório.
 
+## 2026-07-27
+
+- **Nova funcionalidade**: catálogo de exercícios (`app/services/exercise_catalog.py`), com ~50 exercícios comuns mapeados por nome canônico e grupo muscular. Resolve dois problemas de uma vez:
+  - **Sobrecarga progressiva**: antes, o histórico de progressão só era encontrado se o nome do exercício fosse EXATAMENTE igual ao de uma sessão anterior — então toda vez que a Extração de Referência substituía um exercício por um equivalente (comportamento correto dela), a progressão "zerava" e mostrava "primeira sessão" de novo. Agora o histórico é casado pela identidade canônica do exercício (ex: "Supino Reto" e "Supino Reto com Barra" continuam o mesmo histórico), mas continua tratando exercícios genuinamente diferentes (ex: Supino Reto vs Crucifixo) como históricos separados — já que cargas de exercícios diferentes não são comparáveis.
+  - **Gráfico de Grupo Muscular**: antes usava um dicionário fixo de ~12 palavras-chave; agora usa o catálogo completo, com cobertura muito maior.
+  - Bancos existentes são migrados automaticamente (novas colunas `muscle_group` em `exercises` e `canonical_name` em `workout_progress`), com fallback para o comportamento antigo em registros de histórico anteriores à migração.
+
 ## 2026-07-26
 
 - **Melhoria**: instrução de concisão adicionada ao prompt principal (campos de texto livre como `notes` devem ser diretos, no máximo 2 frases curtas, sem repetir informação) — reduz tokens de saída em cada chamada. (Investigamos também o repositório `JuliusBrussee/caveman` a pedido do usuário: é um "skill" de prompt para agentes de codificação de IA reduzirem tokens de conversa, não uma biblioteca para chamadas de API dentro do app — mas o princípio de concisão foi aproveitado diretamente no prompt.)

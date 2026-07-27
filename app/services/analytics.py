@@ -2,6 +2,7 @@ import plotly.express as px
 import plotly.io as pio
 from sqlalchemy.orm import Session
 from ..models import Workout, Exercise
+from .exercise_catalog import get_muscle_group
 
 
 def get_volume_chart(db: Session) -> str:
@@ -49,27 +50,14 @@ def get_exercise_distribution(db: Session) -> str:
 
 
 def get_muscle_group_chart(db: Session) -> str:
-    """Distribuição por grupo muscular (estimado pelo LLM)."""
+    """Distribuição por grupo muscular, via app/services/exercise_catalog.py."""
     exercises = db.query(Exercise.name).all()
     if not exercises:
         return "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda.</p>"
 
-    # Mapeamento simples (pode ser melhorado com LLM depois)
-    muscle_map = {
-        "supino": "Peito", "agachamento": "Pernas", "rosca": "Bíceps",
-        "triceps": "Tríceps", "remada": "Costas", "puxada": "Costas",
-        "elevacao": "Ombros", "leg press": "Pernas", "cadeira": "Pernas",
-        "stiff": "Pernas", "crucifixo": "Peito", "abdominal": "Core",
-    }
-
     groups = {}
     for ex in exercises:
-        nome = ex.name.lower()
-        grupo = "Outros"
-        for key, value in muscle_map.items():
-            if key in nome:
-                grupo = value
-                break
+        grupo = get_muscle_group(ex.name)
         groups[grupo] = groups.get(grupo, 0) + 1
 
     data = [{"grupo": k, "total": v} for k, v in groups.items()]

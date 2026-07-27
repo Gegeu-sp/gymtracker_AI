@@ -17,10 +17,16 @@ def get_db():
 # (`Base.metadata.create_all` só cria tabelas novas, não altera existentes), então
 # aplicamos aqui um ALTER TABLE idempotente para não exigir apagar o gym.db a cada release.
 _STARTUP_COLUMN_MIGRATIONS = {
-    "exercises": [("rest_seconds_target", "INTEGER")],
+    "exercises": [
+        ("rest_seconds_target", "INTEGER"),
+        ("muscle_group", "VARCHAR"),
+    ],
     "workouts": [
         ("live_session_started_at", "DATETIME"),
         ("live_session_finished_at", "DATETIME"),
+    ],
+    "workout_progress": [
+        ("canonical_name", "VARCHAR"),
     ],
 }
 
