@@ -1,5 +1,5 @@
 import re
-from typing import Callable, List
+from typing import Callable, List, Optional
 from sqlalchemy.orm import Session
 from ..models import Exercise, Workout, WorkoutProgress
 from .progression_service import calculate_exercise_progression
@@ -32,6 +32,7 @@ def save_generated_workouts(
     parsed: dict,
     build_notes: Callable[[dict], str],
     source: str = "llm",
+    student_name: Optional[str] = None,
 ) -> List[Workout]:
     """
     Persiste o dict {"workouts": [{"exercises": [...]}]} retornado pelo LLM,
@@ -44,7 +45,7 @@ def save_generated_workouts(
 
     saved_workouts = []
     for day_data in parsed["workouts"]:
-        workout = Workout(source=source, notes=build_notes(day_data))
+        workout = Workout(source=source, student_name=student_name, notes=build_notes(day_data))
         db.add(workout)
         db.commit()
         db.refresh(workout)

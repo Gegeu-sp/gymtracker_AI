@@ -1,5 +1,6 @@
 import os
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Workout, Exercise
@@ -13,7 +14,11 @@ from datetime import datetime
 router = APIRouter(prefix="/image", tags=["image"])
 
 @router.post("/upload", response_model=WorkoutOut)
-async def upload_workout_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_workout_image(
+    file: UploadFile = File(...),
+    student_name: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
     """Upload de imagem -> OCR -> LLM -> Banco."""
     try:
         # 1. Salvar imagem
@@ -52,7 +57,8 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
             source="image",
             image_path=file_path,
             notes=notes,
-            professor_profile=None
+            professor_profile=None,
+            student_name=student_name
         )
         db.add(workout)
         db.commit()
@@ -87,6 +93,7 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
             "source": workout.source,
             "notes": workout.notes,
             "professor_profile": None,
+            "student_name": workout.student_name,
             "exercises": exercises_list,
             "total_volume": total_volume,
             "total_exercises": len(exercises_list),

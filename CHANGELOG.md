@@ -4,6 +4,7 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-07-27
 
+- **Nova funcionalidade**: campo "Aluno" (tag leve, sem login) nos treinos — dá pra marcar de qual aluno é cada treino gerado (Dashboard, Extração de Referência, Upload de Imagem e criação manual), com autocomplete dos nomes já usados e filtro por aluno no Histórico (`/workouts/view`) e na listagem da API (`GET /workouts/?student_name=...`). Resolve o problema de todos os treinos ficarem misturados numa lista só quando o app é usado para mais de uma pessoa.
 - **Nova funcionalidade**: catálogo de exercícios (`app/services/exercise_catalog.py`), com ~50 exercícios comuns mapeados por nome canônico e grupo muscular. Resolve dois problemas de uma vez:
   - **Sobrecarga progressiva**: antes, o histórico de progressão só era encontrado se o nome do exercício fosse EXATAMENTE igual ao de uma sessão anterior — então toda vez que a Extração de Referência substituía um exercício por um equivalente (comportamento correto dela), a progressão "zerava" e mostrava "primeira sessão" de novo. Agora o histórico é casado pela identidade canônica do exercício (ex: "Supino Reto" e "Supino Reto com Barra" continuam o mesmo histórico), mas continua tratando exercícios genuinamente diferentes (ex: Supino Reto vs Crucifixo) como históricos separados — já que cargas de exercícios diferentes não são comparáveis.
   - **Gráfico de Grupo Muscular**: antes usava um dicionário fixo de ~12 palavras-chave; agora usa o catálogo completo, com cobertura muito maior.

@@ -1,7 +1,8 @@
+from html import escape as escape_html
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 from ..models import Workout, Exercise
 from ..schemas import (
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 @router.post("/", response_model=WorkoutOut)
 def create_manual_workout(data: WorkoutCreate, db: Session = Depends(get_db)):
-    w = Workout(source="manual", notes=data.notes)
+    w = Workout(source="manual", notes=data.notes, student_name=data.student_name)
     db.add(w)
     db.commit()
     db.refresh(w)
@@ -42,9 +43,21 @@ def generate_workout_endpoint(req: WorkoutGenerationRequest, db: Session = Depen
         return f"🤖 Prof. {prof_name} | Objetivo: {req.goal.capitalize()} | Nível: {req.level.capitalize()}"
 
     try:
-        return save_generated_workouts(db, parsed, build_notes, source="llm")
+        return save_generated_workouts(db, parsed, build_notes, source="llm", student_name=req.student_name)
     except ValueError:
         raise HTTPException(status_code=500, detail="Falha ao gerar treinos com LLM.")
+
+@router.get("/students", response_model=List[str])
+def list_students(db: Session = Depends(get_db)):
+    """Nomes distintos de aluno já usados em algum treino, para alimentar autocomplete no frontend."""
+    rows = (
+        db.query(Workout.student_name)
+        .filter(Workout.student_name.isnot(None), Workout.student_name != "")
+        .distinct()
+        .order_by(Workout.student_name)
+        .all()
+    )
+    return [r[0] for r in rows]
 
 @router.put("/{workout_id}/edit", response_model=WorkoutOut)
 def edit_workout_prescription(
@@ -129,13 +142,29 @@ def get_workout_progression(workout_id: int, db: Session = Depends(get_db)):
     return get_workout_progression_suggestions(db, workout_id)
 
 @router.get("/", response_model=list[WorkoutOut])
-def list_workouts(db: Session = Depends(get_db)):
-    return db.query(Workout).order_by(Workout.date.desc()).all()
+def list_workouts(student_name: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Workout)
+    if student_name:
+        query = query.filter(Workout.student_name.ilike(student_name))
+    return query.order_by(Workout.date.desc()).all()
 
 @router.get("/view", response_class=HTMLResponse)
-def view_workouts_table(db: Session = Depends(get_db)):
-    workouts = db.query(Workout).order_by(Workout.date.desc()).all()
-    
+def view_workouts_table(student_name: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Workout)
+    if student_name:
+        query = query.filter(Workout.student_name.ilike(student_name))
+    workouts = query.order_by(Workout.date.desc()).all()
+
+    all_students = [
+        r[0] for r in db.query(Workout.student_name)
+        .filter(Workout.student_name.isnot(None), Workout.student_name != "")
+        .distinct().order_by(Workout.student_name).all()
+    ]
+    student_options = "".join(
+        f'<option value="{escape_html(s)}"{" selected" if s == student_name else ""}>{escape_html(s)}</option>'
+        for s in all_students
+    )
+
     html = """
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -168,6 +197,9 @@ def view_workouts_table(db: Session = Depends(get_db)):
             .links { text-align: center; margin-top: 30px; }
             .links a { margin: 0 15px; color: #006494; text-decoration: none; font-weight: 600; }
             .links a:hover { text-decoration: underline; }
+            .student-filter { text-align: center; margin-bottom: 25px; }
+            .student-filter select { padding: 10px 16px; border-radius: 8px; border: 2px solid #D1E3E8; font-size: 1rem; font-family: inherit; background: white; color: #006494; }
+            .student-badge { color: #006494; font-weight: 700; }
             th:nth-child(1), td:nth-child(1) { width: 10%; }
             th:nth-child(2), td:nth-child(2) { width: 15%; }
             th:nth-child(3), td:nth-child(3) { width: 63%; }
@@ -177,12 +209,20 @@ def view_workouts_table(db: Session = Depends(get_db)):
     <body>
         <div class="container">
             <h1>🏋️ Histórico de Treinos</h1>
+            <div class="student-filter">
+                <select onchange="location.href='/workouts/view' + (this.value ? '?student_name=' + encodeURIComponent(this.value) : '')">
+                    <option value="">👥 Todos os Alunos</option>
+                    """ + student_options + """
+                </select>
+            </div>
             <table>
                 <thead><tr><th>Data</th><th>Origem & Ações</th><th>Exercícios (Ordem Exata: Bloco 1 → Principal → Bloco 3)</th><th>Volume Prescrito</th></tr></thead>
                 <tbody>
     """
     for w in workouts:
         date_str = w.date.strftime("%d/%m/%Y<br><small style='color:#777'>%H:%M</small>")
+        student_html = f"<br><small class='student-badge'>👤 {escape_html(w.student_name)}</small>" if w.student_name else ""
+        date_str += student_html
         has_edited = any(getattr(ex, 'is_edited', False) for ex in w.exercises)
         edited_badge = ' <span class="badge badge-edited">Editado</span>' if has_edited else ''
         source_badge = f'<span class="badge badge-{w.source}">{w.source}</span>{edited_badge}'

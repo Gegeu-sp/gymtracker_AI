@@ -113,6 +113,13 @@
 
         <div class="grid">
             <div class="card">
+                <div class="form-group">
+                    <label for="student_name">👤 Aluno (opcional)</label>
+                    <input type="text" id="student_name" list="studentNamesList" placeholder="Ex: João Silva">
+                    <datalist id="studentNamesList"></datalist>
+                </div>
+                <div class="divider"></div>
+
                 <h2>📸 Upload de Imagem</h2>
                 <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">📷</div>
@@ -302,6 +309,11 @@
         let activeWorkoutForAction = null;
         let selectedFile = null;
 
+        fetch('/workouts/students').then(r => r.ok ? r.json() : []).then(students => {
+            const list = document.getElementById('studentNamesList');
+            list.innerHTML = students.map(s => `<option value="${s}"></option>`).join('');
+        }).catch(() => {});
+
         const uploadArea = document.getElementById('uploadArea');
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
         uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--border)'; });
@@ -330,6 +342,7 @@
 
             const formData = new FormData();
             formData.append('file', selectedFile);
+            formData.append('student_name', document.getElementById('student_name').value || '');
 
             try {
                 const response = await fetch('/image/upload', { method: 'POST', body: formData });
@@ -362,6 +375,7 @@
 
             const requestData = {
                 professor_name: document.getElementById('professor_name').value || null,
+                student_name: document.getElementById('student_name').value || null,
                 goal: document.getElementById('goal').value,
                 level: document.getElementById('level').value,
                 days_per_week: parseInt(document.getElementById('days_per_week').value),
@@ -434,7 +448,7 @@
 
                 workoutDiv.innerHTML = `
                     <div class="workout-day">
-                        <h3>📅 Treino ${index + 1}</h3>
+                        <h3>📅 Treino ${index + 1}${workout.student_name ? ' — 👤 ' + workout.student_name : ''}</h3>
                         <p style="opacity: 0.9; font-size: 0.95rem;">${workout.notes || ''}</p>
                         <div class="stats">
                             <div class="stat-item"><div class="stat-value">${workout.total_exercises}</div><div class="stat-label">Exercícios</div></div>
