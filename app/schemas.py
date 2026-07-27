@@ -80,10 +80,12 @@ class ExerciseProgressionOut(BaseModel):
 class WorkoutCreate(BaseModel):
     exercises: List[ExerciseCreate]
     notes: Optional[str] = None
+    student_name: Optional[str] = None
 
 # Schema unificado para geração (Perfil do Professor + Aluno)
 class WorkoutGenerationRequest(BaseModel):
     professor_name: Optional[str] = None
+    student_name: Optional[str] = None
     goal: str = "hipertrofia"
     level: str = "intermediario"
     days_per_week: int = 1  # 1 a 6 treinos
@@ -162,6 +164,7 @@ class WorkoutOut(BaseModel):
     date: datetime
     source: str
     notes: Optional[str] = None
+    student_name: Optional[str] = None
     exercises: List[ExerciseOut]
     
     total_volume: float = 0.0

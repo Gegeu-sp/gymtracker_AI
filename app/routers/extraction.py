@@ -40,6 +40,7 @@ def generate_from_reference(
     raw_text: str = Form(...),
     filename: Optional[str] = Form(None),
     professor_name: Optional[str] = Form(None),
+    student_name: Optional[str] = Form(None),
     goal: str = Form("hipertrofia"),
     level: str = Form("intermediario"),
     days_per_week: int = Form(1, ge=1, le=6),
@@ -62,7 +63,7 @@ def generate_from_reference(
         raise HTTPException(status_code=400, detail="Texto de referência vazio ou inválido.")
 
     req = WorkoutGenerationRequest(
-        professor_name=professor_name, goal=goal, level=level,
+        professor_name=professor_name, student_name=student_name, goal=goal, level=level,
         days_per_week=days_per_week, specialization=specialization,
         training_philosophy=training_philosophy, preferred_methods=preferred_methods,
         rest_time=rest_time, custom_instructions=custom_instructions,
@@ -86,6 +87,6 @@ def generate_from_reference(
         return f"{base}\n{day_notes}" if day_notes else base
 
     try:
-        return save_generated_workouts(db, parsed, build_notes, source="image_reference")
+        return save_generated_workouts(db, parsed, build_notes, source="image_reference", student_name=req.student_name)
     except ValueError:
         raise HTTPException(status_code=500, detail="Falha ao gerar treinos a partir da referência.")

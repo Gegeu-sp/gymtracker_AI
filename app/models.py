@@ -12,6 +12,7 @@ class Workout(Base):
     image_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     professor_profile: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Perfil do professor usado
+    student_name: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)  # Tag leve de aluno (sem autenticação)
     live_session_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     live_session_finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     exercises: Mapped[List["Exercise"]] = relationship("Exercise", back_populates="workout", cascade="all, delete")

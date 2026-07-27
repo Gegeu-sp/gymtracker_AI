@@ -24,11 +24,19 @@ _STARTUP_COLUMN_MIGRATIONS = {
     "workouts": [
         ("live_session_started_at", "DATETIME"),
         ("live_session_finished_at", "DATETIME"),
+        ("student_name", "VARCHAR"),
     ],
     "workout_progress": [
         ("canonical_name", "VARCHAR"),
     ],
 }
+
+# Índices declarados no model (index=True) que precisam ser criados manualmente em bancos já
+# existentes — Base.metadata.create_all só cria índices junto com a tabela na primeira vez.
+_STARTUP_INDEX_MIGRATIONS = [
+    ("ix_workouts_student_name", "workouts", "student_name"),
+    ("ix_workout_progress_canonical_name", "workout_progress", "canonical_name"),
+]
 
 def run_startup_migrations() -> None:
     with engine.connect() as conn:
@@ -37,4 +45,6 @@ def run_startup_migrations() -> None:
             for column_name, column_type in columns:
                 if column_name not in existing_columns:
                     conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
+        for index_name, table, column in _STARTUP_INDEX_MIGRATIONS:
+            conn.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({column})")
         conn.commit()

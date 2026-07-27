@@ -134,6 +134,11 @@
         <div class="card disabled-section" id="formSection">
             <h2><span class="step-badge">3</span> Perfil do Professor & Objetivo</h2>
             <div class="hint-box">🔄 A IA vai criar um treino <strong>novo</strong>, substituindo os exercícios da referência por equivalentes (mesmo grupo muscular/padrão de movimento) — não uma cópia. Use o volume e as instruções abaixo para controlar como.</div>
+            <div class="form-group">
+                <label for="student_name">👤 Aluno (opcional)</label>
+                <input type="text" id="student_name" list="studentNamesList" placeholder="Ex: João Silva">
+                <datalist id="studentNamesList"></datalist>
+            </div>
             <div class="row">
                 <div class="form-group">
                     <label for="professor_name">Nome do Professor</label>
@@ -222,6 +227,11 @@
     <script>
         let selectedFile = null;
         let currentResultsData = [];
+
+        fetch('/workouts/students').then(r => r.ok ? r.json() : []).then(students => {
+            const list = document.getElementById('studentNamesList');
+            list.innerHTML = students.map(s => `<option value="${s}"></option>`).join('');
+        }).catch(() => {});
 
         const uploadArea = document.getElementById('uploadArea');
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--secondary)'; });
@@ -340,6 +350,7 @@
             formData.append('raw_text', rawText);
             formData.append('filename', selectedFile ? selectedFile.name : '');
             formData.append('professor_name', document.getElementById('professor_name').value || '');
+            formData.append('student_name', document.getElementById('student_name').value || '');
             formData.append('goal', document.getElementById('goal').value);
             formData.append('level', document.getElementById('level').value);
             formData.append('days_per_week', document.getElementById('days_per_week').value);
@@ -401,7 +412,7 @@
 
                 workoutDiv.innerHTML = `
                     <div class="workout-day">
-                        <h3>📅 Treino ${index + 1}</h3>
+                        <h3>📅 Treino ${index + 1}${workout.student_name ? ' — 👤 ' + workout.student_name : ''}</h3>
                         <p style="opacity: 0.9; font-size: 0.9rem;">${workout.notes || ''}</p>
                         <div class="stats">
                             <div class="stat-item"><div class="stat-value">${workout.total_exercises}</div><div class="stat-label">Exercícios</div></div>
