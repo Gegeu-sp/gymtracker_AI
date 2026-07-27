@@ -11,4 +11,34 @@ INFO:     127.0.0.1:59365 - "POST /extraction/generate HTTP/1.1" 500 Internal Se
 https://github.com/rtk-ai/rtk
 ---
 https://github.com/JuliusBrussee/caveman
+
+---
+
+Boa — dá pra organizar isso de um jeito que evita o erro mais comum da preparação física, que é misturar **o que você manipula** com **o que você obtém**. São coisas diferentes, e tratar as duas como a mesma é o que gera aquela sensação de "treinei muito e não sei se progredi".
+
+**As alavancas (o que você melhora / controla)**
+
+Você não "melhora a performance" diretamente — você mexe em variáveis de entrada e a performance é a consequência. As alavancas reais são poucas: carga (intensidade relativa), volume (séries efetivas, tonelagem, sua U.A), densidade (trabalho por unidade de tempo), eficiência técnica e prontidão/recuperação. O Pareto aqui diz que a maior parte do progresso de longo prazo vem de progredir bem a força base + resolver o gargalo dominante + consistência de aderência — e não de variar acessório infinitamente ou otimizar detalhe fino. Guarde essa hierarquia.
+
+**Evolução de carga com resolução (não só %1RM)**
+
+Progredir carga por %1RM puro é grosseiro porque o 1RM oscila dia a dia — no dia ruim, 85% real vira 90% percebido. Para fazer a carga *render* de verdade você precisa de resolução diária:
+
+O e1RM (RM estimado por velocidade ou por RPE/RIR) te dá a força do dia, não a do teste de três semanas atrás. Isso permite autoregular: mesma prescrição de 85%, mas ancorada no estado real. A IMR% que você já usa é o complemento no nível do bloco — ela mostra se a *carga média do trabalho* subiu ou se só o pico subiu enquanto o miolo ficou parado (progresso ilusório clássico). E há um tipo de progresso que a barra não mostra: mesma carga movida com mais velocidade é evolução neural real mesmo sem subir kg. Por isso VBT (parar a série quando a velocidade cai X% do primeiro rep) captura progresso e fadiga que o %1RM esconde.
+
+**Os índices de rendimento — o Pareto do diagnóstico aplicado**
+
+Aqui é onde a conversa anterior aterrissa em número. Em LPO, um punhado de razões diz *onde* está o teto e, portanto, onde vale gastar o esforço vital:
+
+Arranco ≈ 80–82% do arremesso. Desvio pra baixo aponta gargalo específico no arranco (recepção/mobilidade/primeira puxada), não falta de força geral. Arranco e arremesso como % do agachamento diagnosticam a natureza do teto: razão baixa (levanta pouco pra quem agacha muito) = gargalo técnico/velocidade/potência, o atleta tem força que não consegue expressar; razão alta = o teto é força máxima, precisa de mais agachamento/puxada pesada. Power/full ratio (potência vs. completo) revela eficiência de puxada e recepção — power alto demais em relação ao completo sugere que a recepção baixa é o elo fraco. Front/back squat ratio fecha o quadro de onde a força está distribuída.
+
+Esses números são o filtro Pareto: em vez de "melhorar tudo", eles te dizem qual 1–2 fatores concentram o gap e merecem o bloco.
+
+**O que monitorar pra saber que progrediu (além do 1RM)**
+
+Não espere o teste de força pra saber se funcionou. Os marcadores de progresso mais úteis e negligenciados: tendência do e1RM ao longo das semanas (a inclinação, não o valor pontual); velocidade a cargas fixas (mesma carga mais rápida = adaptação); consistência técnica em zona pesada (taxa de acerto de tentativas acima de 90% — atleta que progride erra menos peso pesado); capacidade de trabalho (tolerar e recuperar de um MRV mais alto que no bloco anterior); e prontidão neural via um proxy barato tipo altura de CMJ ou salto — queda persistente é fadiga acumulada antes de virar estagnação.
+
+O ponto que amarra tudo: a maior parte do progresso real vem de você **medir a coisa certa e proteger os vitais poucos** — a força base subindo, o gargalo dominante encolhendo, a técnica ficando consistente sob carga. Volume de acessório, variação e otimização fina são a cauda longa: importam, mas não são onde o ponteiro anda.
+
+Se quiser, monto isso como um **painel de KPIs** — tipo um dashboard com essas razões diagnósticas calculando automaticamente (arranco/arremesso, lifts/agachamento, power/full), tendência de e1RM, IMR% do bloco e um sinalizador de gargalo dominante. Casaria direto com o que você já constrói em planilha e daria a leitura Pareto "onde alocar o próximo bloco" de forma visual. Me diz se topa e em que formato (Excel com fórmulas, ou algo no Flexi-Train).
 ---
