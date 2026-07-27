@@ -2,6 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from ..models import Exercise, WorkoutProgress
 from ..schemas import ExerciseProgressionOut
+from .exercise_catalog import get_canonical_name
 
 # Exercícios compostos / multiarticulares que admitem incrementos maiores de +5.0kg
 COMPOUND_EXERCISES = {
@@ -100,13 +101,28 @@ def get_workout_progression_suggestions(db: Session, workout_id: int) -> List[Ex
     results = []
 
     for ex in exercises:
-        # Procura o último registro de evolução para o mesmo nome de exercício
+        # Procura o último registro de evolução pela identidade CANÔNICA do exercício (via
+        # exercise_catalog.py), não pelo nome literal — assim "Supino Reto" e "Supino Reto com
+        # Barra" (variações de escrita do MESMO exercício) mantêm o histórico de progressão.
+        # Exercícios genuinamente DIFERENTES (ex: substituídos pela Extração de Referência)
+        # continuam com histórico próprio, propositalmente, já que cargas não são comparáveis
+        # entre exercícios diferentes.
+        target_canonical = get_canonical_name(ex.name)
         last_progress = (
             db.query(WorkoutProgress)
-            .filter(WorkoutProgress.exercise_name.ilike(ex.name))
+            .filter(WorkoutProgress.canonical_name == target_canonical)
             .order_by(WorkoutProgress.date.desc())
             .first()
         )
+        if last_progress is None:
+            # Fallback para registros antigos, gravados antes da coluna canonical_name existir
+            last_progress = (
+                db.query(WorkoutProgress)
+                .filter(WorkoutProgress.canonical_name.is_(None))
+                .filter(WorkoutProgress.exercise_name.ilike(ex.name))
+                .order_by(WorkoutProgress.date.desc())
+                .first()
+            )
 
         last_weight = last_progress.actual_weight_kg if last_progress else ex.actual_weight_kg
         last_reps = last_progress.actual_reps if last_progress else ex.actual_reps

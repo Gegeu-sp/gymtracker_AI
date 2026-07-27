@@ -11,6 +11,7 @@ from ..schemas import (
 from ..services.llm_service import generate_workout, LLMRateLimitError
 from ..services.progression_service import get_workout_progression_suggestions
 from ..services.workout_service import apply_execution_result, save_generated_workouts
+from ..services.exercise_catalog import get_muscle_group
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -21,7 +22,7 @@ def create_manual_workout(data: WorkoutCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(w)
     for ex in data.exercises:
-        db.add(Exercise(workout_id=w.id, **ex.model_dump()))
+        db.add(Exercise(workout_id=w.id, muscle_group=get_muscle_group(ex.name), **ex.model_dump()))
     db.commit()
     
     # Garante a ordem correta ao retornar

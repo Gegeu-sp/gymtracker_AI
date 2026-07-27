@@ -29,6 +29,7 @@ class Exercise(Base):
     reps: Mapped[int] = mapped_column(Integer)
     weight_kg: Mapped[float] = mapped_column(Float, default=0.0)
     rest_seconds_target: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Descanso alvo p/ cronômetro do modo ao vivo
+    muscle_group: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Resolvido via app/services/exercise_catalog.py
 
     # Execução real e edição pré-salvamento
     actual_weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -53,6 +54,7 @@ class WorkoutProgress(Base):
     __tablename__ = "workout_progress"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     exercise_name: Mapped[str] = mapped_column(String, index=True)
+    canonical_name: Mapped[Optional[str]] = mapped_column(String, index=True, nullable=True)  # Identidade canônica via exercise_catalog.py
     date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     actual_weight_kg: Mapped[float] = mapped_column(Float)
     actual_reps: Mapped[int] = mapped_column(Integer)

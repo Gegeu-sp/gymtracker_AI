@@ -7,6 +7,7 @@ from ..schemas import WorkoutOut
 from ..services.ocr_service import extract_text_from_image
 from ..services.llm_service import parse_workout_from_text, LLMRateLimitError
 from ..services.workout_service import safe_int, safe_float
+from ..services.exercise_catalog import get_muscle_group
 from datetime import datetime
 
 router = APIRouter(prefix="/image", tags=["image"])
@@ -59,16 +60,18 @@ async def upload_workout_image(file: UploadFile = File(...), db: Session = Depen
 
         # 5. Criar os exercícios vinculados (com conversão segura)
         for ex in exercises:
+            ex_name = ex.get("name", "Exercício")
             exercise = Exercise(
                 workout_id=workout.id,
-                name=ex.get("name", "Exercício"),
+                name=ex_name,
                 nickname=ex.get("nickname"),
                 equipment=ex.get("equipment"),
                 accessory=ex.get("accessory"),
                 method=ex.get("method"),
                 sets=safe_int(ex.get("sets"), 3),
                 reps=safe_int(ex.get("reps"), 10),
-                weight_kg=safe_float(ex.get("weight_kg"), 0.0)
+                weight_kg=safe_float(ex.get("weight_kg"), 0.0),
+                muscle_group=get_muscle_group(ex_name)
             )
             db.add(exercise)
         
