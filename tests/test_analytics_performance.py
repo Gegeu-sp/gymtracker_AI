@@ -9,6 +9,9 @@ from app.models import Exercise, Workout
 from app.services.analytics import (
     build_performance_metrics,
     get_performance_dashboard,
+    get_volume_chart,
+    get_exercise_distribution,
+    get_muscle_group_chart,
     _estimate_e1rm,
     _effective_rpe,
 )
@@ -52,6 +55,10 @@ def test_build_performance_metrics_collects_kpis(client):
         metrics = build_performance_metrics(db, student_name=student)
 
         assert metrics["weekly_volume"]["Peito"]["effective_sets"] == 6
+        # Detalhamento semanal (série/reps/carga) precisa vir junto de cada grupo muscular,
+        # pro gráfico "Séries / Repetições / Carga" novo.
+        assert metrics["weekly_volume"]["Peito"]["effective_reps"] > 0
+        assert metrics["weekly_volume"]["Peito"]["load_kg"] > 0
         # Costas: Puxada Frontal (3) + Remada Curvada (3) + Levantamento Terra (3), já que o
         # catálogo classifica Levantamento Terra como "Costas" também.
         assert metrics["weekly_volume"]["Costas"]["effective_sets"] == 9
@@ -149,3 +156,83 @@ def test_performance_endpoint_filters_by_student(client):
     res = client.get("/analytics/performance", params={"student_name": student})
     assert res.status_code == 200
     assert student in res.text
+
+def test_session_tonnage_excludes_warmup_and_cooldown_blocks():
+    student = "Analytics Teste Tonelagem"
+    db = SessionLocal()
+    try:
+        workout = Workout(date=datetime.now(timezone.utc), notes="Treino Tonelagem", student_name=student)
+        workout.exercises = [
+            Exercise(name="Bloco 1: Mobilidade de Ombro", sets=2, reps=15, weight_kg=0.0, actual_weight_kg=50.0, actual_reps=15, actual_rpe=2.0),
+            Exercise(name="Supino Reto", sets=3, reps=8, weight_kg=100.0, actual_weight_kg=100.0, actual_reps=8, actual_rpe=8.0),
+            Exercise(name="Bloco 3: Respiração Diafragmática", sets=1, reps=10, weight_kg=0.0, actual_weight_kg=30.0, actual_reps=10, actual_rpe=1.0),
+        ]
+        db.add(workout)
+        db.commit()
+
+        metrics = build_performance_metrics(db, student_name=student)
+        # Só o exercício do Bloco 2 (Supino Reto) deve contar: 3 séries x 8 reps x 100kg = 2400.
+        # Se o aquecimento/volta à calma "vazassem" (linhas com weight/rpe alto de propósito
+        # pra estourar o teste), a tonelagem passaria de 2400.
+        assert metrics["session_tonnage"][0]["tonnage"] == 2400.0
+    finally:
+        db.close()
+
+def test_weekly_volume_legend_pill_reflects_status():
+    student = "Analytics Teste Pill"
+    db = SessionLocal()
+    try:
+        workout = Workout(date=datetime.now(timezone.utc), notes="Treino Pill", student_name=student)
+        # Só 1 exercício de peito (poucas séries) -> weekly_volume "Peito" fica sub-treinado (<10 séries).
+        workout.exercises = [
+            Exercise(name="Supino Reto", sets=3, reps=8, weight_kg=100.0, actual_weight_kg=100.0, actual_reps=8, actual_rpe=8.0),
+        ]
+        db.add(workout)
+        db.commit()
+
+        html = get_performance_dashboard(db, student_name=student)
+        assert "pill-sub-treinado" in html
+    finally:
+        db.close()
+
+def test_rpe_empty_state_explains_how_to_fix(client):
+    student = "Analytics Teste RPE Vazio"
+    db = SessionLocal()
+    try:
+        workout = Workout(date=datetime.now(timezone.utc), notes="Treino sem execução", student_name=student)
+        workout.exercises = [
+            Exercise(name="Supino Reto", sets=3, reps=8, weight_kg=100.0)
+        ]
+        db.add(workout)
+        db.commit()
+
+        html = get_performance_dashboard(db, student_name=student)
+        assert "Registrar Execução" in html
+    finally:
+        db.close()
+
+def test_weekly_breakdown_chart_present_when_data_exists():
+    student = "Analytics Teste Breakdown"
+    db = SessionLocal()
+    try:
+        workout = Workout(date=datetime.now(timezone.utc), notes="Treino Breakdown", student_name=student)
+        workout.exercises = [
+            Exercise(name="Supino Reto", sets=3, reps=8, weight_kg=100.0, actual_weight_kg=100.0, actual_reps=8, actual_rpe=8.0),
+        ]
+        db.add(workout)
+        db.commit()
+
+        html = get_performance_dashboard(db, student_name=student)
+        assert "Séries / Repetições / Carga" in html
+    finally:
+        db.close()
+
+def test_bare_chart_fragments_have_back_to_dashboard_link():
+    db = SessionLocal()
+    try:
+        for chart_fn in (get_volume_chart, get_exercise_distribution, get_muscle_group_chart):
+            html = chart_fn(db)
+            assert 'href="/"' in html
+            assert "Dashboard" in html
+    finally:
+        db.close()

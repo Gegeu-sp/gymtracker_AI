@@ -108,6 +108,8 @@ def build_performance_metrics(db: Session, student_name: Optional[str] = None) -
     session_tonnage: List[Dict[str, Any]] = []
     session_rpe: List[Dict[str, Any]] = []
     weekly_sets_by_group: Dict[str, int] = {}
+    weekly_reps_by_group: Dict[str, int] = {}
+    weekly_load_by_group: Dict[str, float] = {}
 
     # Janela semanal a partir de AGORA (FR-002), não da data do último treino registrado —
     # senão a "semana" desliza pra trás junto com o histórico e pode mascarar sub-treino real.
@@ -121,15 +123,22 @@ def build_performance_metrics(db: Session, student_name: Optional[str] = None) -
             effective_weight = _effective_weight(exercise)
             effective_reps = max(1, _effective_reps(exercise))
             effective_sets = max(1, int(getattr(exercise, "sets", 0) or 0))
-            session_tonnage_value += effective_sets * effective_reps * effective_weight
+            is_main_block = _is_main_block_exercise(exercise)
+
+            # Tonelagem da sessão (FR-003) é só do Bloco 2 (sessão principal) — aquecimento e
+            # volta à calma não têm carga de trabalho real e inflavam o número artificialmente.
+            if is_main_block:
+                session_tonnage_value += effective_sets * effective_reps * effective_weight
 
             rpe = _effective_rpe(exercise)
             if rpe is not None:
                 session_rpe_values.append(rpe)
 
-            if _is_main_block_exercise(exercise) and workout_date >= weekly_cutoff:
+            if is_main_block and workout_date >= weekly_cutoff:
                 muscle_group = _resolve_muscle_group(exercise)
                 weekly_sets_by_group[muscle_group] = weekly_sets_by_group.get(muscle_group, 0) + effective_sets
+                weekly_reps_by_group[muscle_group] = weekly_reps_by_group.get(muscle_group, 0) + (effective_sets * effective_reps)
+                weekly_load_by_group[muscle_group] = weekly_load_by_group.get(muscle_group, 0.0) + (effective_sets * effective_reps * effective_weight)
 
             if any(keyword in (exercise.name or "").lower() for keyword in ["supino", "agachamento", "terra", "deadlift", "squat", "bench"]):
                 e1rm_value = _estimate_e1rm(exercise)
@@ -172,6 +181,8 @@ def build_performance_metrics(db: Session, student_name: Optional[str] = None) -
             alert = "✅ Volume dentro da faixa de hipertrofia"
         weekly_volume[group] = {
             "effective_sets": sets,
+            "effective_reps": weekly_reps_by_group.get(group, 0),
+            "load_kg": round(weekly_load_by_group.get(group, 0.0), 1),
             "status": status,
             "alert": alert,
         }
@@ -273,14 +284,45 @@ def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -
     else:
         weekly_chart = "<p style='color:#5A7A8C;'>Sem dados suficientes para o volume semanal.</p>"
 
+    weekly_breakdown_chart = ""
+    if weekly_volume:
+        groups = list(weekly_volume.keys())
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name="Séries", x=groups, y=[item["effective_sets"] for item in weekly_volume.values()], marker_color="#1B98E0"))
+        fig.add_trace(go.Bar(name="Repetições", x=groups, y=[item["effective_reps"] for item in weekly_volume.values()], marker_color="#247BA0"))
+        fig.add_trace(go.Bar(name="Carga (kg)", x=groups, y=[item["load_kg"] for item in weekly_volume.values()], marker_color="#006494"))
+        fig.update_layout(title="📊 Volume semanal — Séries / Repetições / Carga por grupo muscular", xaxis_title="Grupo muscular", barmode="group", template="plotly_white")
+        weekly_breakdown_chart = pio.to_html(fig, full_html=False, include_plotlyjs="cdn")
+    else:
+        weekly_breakdown_chart = "<p style='color:#5A7A8C;'>Sem dados suficientes para o detalhamento semanal.</p>"
+
     tonnage_chart = ""
     if session_tonnage:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=[item["date"].strftime("%Y-%m-%d") for item in session_tonnage], y=[item["tonnage"] for item in session_tonnage], mode="lines+markers", line=dict(color="#006494", width=3), marker=dict(color="#1B98E0")))
+        fig.add_trace(go.Bar(
+            x=[f"{item['date'].strftime('%d/%m')} · {item['session']}" for item in session_tonnage],
+            y=[item["tonnage"] for item in session_tonnage],
+            marker_color="#1B98E0",
+        ))
         fig.update_layout(title="🏋️ Tonelagem total por sessão", xaxis_title="Sessão", yaxis_title="Tonelagem (kg)", template="plotly_white")
         tonnage_chart = pio.to_html(fig, full_html=False, include_plotlyjs="cdn")
     else:
         tonnage_chart = "<p style='color:#5A7A8C;'>Sem dados de tonagem registrada.</p>"
+
+    rpe_chart = ""
+    if session_rpe:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=[item["date"].strftime("%Y-%m-%d") for item in session_rpe],
+            y=[item["average_rpe"] for item in session_rpe],
+            mode="lines+markers",
+            line=dict(color="#006494", width=3),
+            marker=dict(color=["#2ECC71" if item["status"] == "ideal" else "#F39C12" for item in session_rpe], size=9),
+        ))
+        fig.update_layout(title="🔥 Tendência do RPE médio por sessão", xaxis_title="Data", yaxis_title="RPE médio", template="plotly_white", yaxis=dict(range=[0, 10]))
+        rpe_chart = pio.to_html(fig, full_html=False, include_plotlyjs="cdn")
+    else:
+        rpe_chart = "<p style='color:#5A7A8C;'>Sem dados de RPE ainda — registre a execução real (Histórico → Registrar Execução, ou Modo ao Vivo) para começar a ver a tendência.</p>"
 
     balance_cards = []
     for label, values in balance.items():
@@ -298,7 +340,7 @@ def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -
         last_entry = session_rpe[-1]
         rpe_cards.append(f"<div class='metric-card'><h3>RPE Médio da Última Sessão</h3><div class='value'>{last_entry['average_rpe']:.1f}</div><p>{'✅ Zona ideal' if last_entry['status'] == 'ideal' else '⚠️ Ajustar intensidade'}</p></div>")
     else:
-        rpe_cards.append("<div class='metric-card'><h3>RPE Médio</h3><div class='value'>N/A</div><p>Sem dados</p></div>")
+        rpe_cards.append("<div class='metric-card'><h3>RPE Médio</h3><div class='value'>—</div><p>Sem dados — registre a execução real (Histórico → Registrar Execução, ou Modo ao Vivo) para ver o RPE médio.</p></div>")
 
     fatigue_badge = f"<div class='metric-card'><h3>Semáforo de Fadiga</h3><div class='value'>{fatigue['status'].upper()}</div><p>{fatigue['message']}</p></div>"
 
@@ -339,6 +381,9 @@ def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -
             .metric-card small {{ color: #5A7A8C; }}
             .chart-card {{ margin-top: 18px; }}
             .pill {{ display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; background: #E8F6FD; color: #006494; }}
+            .pill-ok {{ background: #E4F9EE; color: #1E8449; }}
+            .pill-sub-treinado {{ background: #FEF3E2; color: #B9770E; }}
+            .pill-overtraining {{ background: #FDECEA; color: #C0392B; }}
             .legend {{ margin-top: 12px; color: #5A7A8C; font-size: 0.9rem; }}
         </style>
     </head>
@@ -369,11 +414,21 @@ def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -
             </div>
 
             <div class="card">
+                <h2>🔥 Tendência do RPE Médio</h2>
+                <div class="chart-card">{rpe_chart}</div>
+            </div>
+
+            <div class="card">
                 <h2>🧠 Volume Semanal por Grupo Muscular</h2>
                 <div class="chart-card">{weekly_chart}</div>
                 <div class="legend">
-                    {''.join(f"<div><span class='pill'>{group}</span> · {data['effective_sets']} séries · {data['alert']}</div>" for group, data in weekly_volume.items())}
+                    {''.join(f"<div><span class='pill pill-{data['status']}'>{group}</span> · {data['effective_sets']} séries · {data['alert']}</div>" for group, data in weekly_volume.items())}
                 </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Volume Semanal — Séries / Repetições / Carga</h2>
+                <div class="chart-card">{weekly_breakdown_chart}</div>
             </div>
 
             <div class="card">
@@ -384,6 +439,16 @@ def get_performance_dashboard(db: Session, student_name: Optional[str] = None) -
     </body>
     </html>
     """
+
+
+# Cabeçalho mínimo de navegação para os fragmentos de gráfico abaixo, que não têm um
+# <html>/<head> próprio — antes eram becos sem saída (só dava pra sair pelo botão voltar
+# do navegador), sem nenhum link de volta ao Dashboard.
+_BACK_TO_DASHBOARD_HEADER = """
+<div style="font-family:'Segoe UI',Arial,sans-serif; background:linear-gradient(135deg,#006494 0%,#247BA0 100%); padding:14px 20px;">
+    <a href="/" style="color:white; text-decoration:none; font-weight:600;">⬅️ Dashboard</a>
+</div>
+"""
 
 
 def get_volume_chart(db: Session) -> str:
@@ -398,7 +463,7 @@ def get_volume_chart(db: Session) -> str:
         })
 
     if not data:
-        return "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda. Registre seu primeiro treino!</p>"
+        return _BACK_TO_DASHBOARD_HEADER + "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda. Registre seu primeiro treino!</p>"
 
     fig = px.line(
         data, x="data", y="volume_kg",
@@ -406,7 +471,7 @@ def get_volume_chart(db: Session) -> str:
         markers=True
     )
     fig.update_layout(template="plotly_white")
-    return pio.to_html(fig, full_html=False)
+    return _BACK_TO_DASHBOARD_HEADER + pio.to_html(fig, full_html=False)
 
 
 def get_exercise_distribution(db: Session) -> str:
@@ -420,21 +485,21 @@ def get_exercise_distribution(db: Session) -> str:
     data = [{"nome": nome, "quantidade": qtd} for nome, qtd in sorted_counts]
 
     if not data:
-        return "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda.</p>"
+        return _BACK_TO_DASHBOARD_HEADER + "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda.</p>"
 
     fig = px.bar(
         data, x="quantidade", y="nome", orientation="h",
         title="🏋️ Top 10 Exercícios Mais Feitos"
     )
     fig.update_layout(template="plotly_white")
-    return pio.to_html(fig, full_html=False)
+    return _BACK_TO_DASHBOARD_HEADER + pio.to_html(fig, full_html=False)
 
 
 def get_muscle_group_chart(db: Session) -> str:
     """Distribuição por grupo muscular, via app/services/exercise_catalog.py."""
     exercises = db.query(Exercise.name).all()
     if not exercises:
-        return "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda.</p>"
+        return _BACK_TO_DASHBOARD_HEADER + "<p style='font-family:sans-serif;padding:20px;'>📊 Sem dados ainda.</p>"
 
     groups = {}
     for ex in exercises:
@@ -444,4 +509,4 @@ def get_muscle_group_chart(db: Session) -> str:
     data = [{"grupo": k, "total": v} for k, v in groups.items()]
     fig = px.pie(data, names="grupo", values="total", title="💪 Distribuição por Grupo Muscular")
     fig.update_layout(template="plotly_white")
-    return pio.to_html(fig, full_html=False)
+    return _BACK_TO_DASHBOARD_HEADER + pio.to_html(fig, full_html=False)
