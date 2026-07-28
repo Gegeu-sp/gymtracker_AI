@@ -2,6 +2,14 @@
 
 Histórico de tudo que foi feito no projeto, da atualização mais recente para a mais antiga. Este arquivo é atualizado sempre que uma mudança é enviada ao repositório.
 
+## 2026-07-28
+
+- **Correção crítica**: uma sessão anterior havia trocado a Groq pelo Ollama local (`qwen2.5:3b`) direto em `app/services/llm_service.py`, mas de um jeito quebrado — apagou funções (`structure_reference_table`, `parse_reference_and_generate`, etc.) que `app/routers/extraction.py` ainda importava, e não adicionou o pacote `ollama` ao `requirements.txt`. Resultado: o app inteiro falhava ao subir com `ImportError: cannot import name 'parse_reference_and_generate'`. Restaurada a versão completa e funcional da Groq.
+- **Nova funcionalidade**: Ollama (`qwen2.5:3b`, rodando localmente) integrado como **fallback** da Groq, não substituto — a Groq continua sendo a IA principal:
+  - Nas 3 tarefas "pesadas" (extrair treino de imagem, gerar treino, gerar treino a partir de referência), se a Groq bater o limite diário de tokens (429), o app tenta automaticamente o Ollama local antes de mostrar erro; só cai no aviso de limite atingido se o Ollama também não responder (ex: não estiver rodando).
+  - Na tarefa leve de estruturar a tabela de referência extraída por OCR, a prioridade é invertida: tenta o Ollama primeiro (evita gastar token da Groq numa tarefa simples), só usa a Groq se o Ollama não estiver disponível.
+  - Se o pacote `ollama` não estiver instalado na máquina, o app detecta isso e continua funcionando normalmente só com a Groq (sem fallback local), sem quebrar nada.
+
 ## 2026-07-27
 
 - **Correção**: revisão da implementação do Painel de KPIs de Performance (`/analytics/performance`, enviada em `f86fb3d`) contra a especificação e a lógica de treino/RPE, corrigindo 7 problemas:
