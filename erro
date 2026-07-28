@@ -1,51 +1,55 @@
-(venv) PS C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker> uvicorn app.main:app --reload
-INFO:     Will watch for changes in these directories: ['C:\\Users\\MUSCULAÇÃO\\Documents\\Teste\\gym-tracker']
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [21500] using WatchFiles
-Using CPU. Note: This module is much faster with a GPU.
-C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\torch\ao\nn\quantized\dynamic\modules\rnn.py:162: UserWarning: torch.quantize_per_tensor, torch.quantize_per_channel and other quantized tensor creation functions that produce tensors with dtype torch.quint8, torch.qint8, and torch.qint32 are deprecated and will be removed in a future PyTorch release. Please see https://github.com/pytorch/pytorch/issues/184982 for more information. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\quantized\Quantizer.cpp:116.)
-  w_ih = torch.quantize_per_tensor(
-Process SpawnProcess-1:
+C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\torch\utils\data\dataloader.py:759: UserWarning:
+
+'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
+
+INFO:     127.0.0.1:54223 - "POST /extraction/ocr-preview HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
 Traceback (most recent call last):
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 314, in _bootstrap
-    self.run()
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 108, in run
-    self._target(*self._args, **self._kwargs)
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
-    target(sockets=sockets)
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 65, in run
-    return asyncio.run(self.serve(sockets=sockets))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 65, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\routing.py", line 756, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\routing.py", line 776, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\starlette\routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\fastapi\routing.py", line 278, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\fastapi\routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\routers\extraction.py", line 32, in preview_reference_ocr
+    rows = structure_reference_table(raw_text)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 69, in serve
-    await self._serve(sockets)
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 76, in _serve
-    config.load()
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\config.py", line 434, in load
-    self.loaded_app = import_from_string(self.app)
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\importer.py", line 19, in import_from_string
-    module = importlib.import_module(module_str)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\importlib\__init__.py", line 126, in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
-  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
-  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
-  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\main.py", line 5, in <module>
-    from .routers import workout, image, analytics, live_session, extraction
-  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\routers\extraction.py", line 9, in <module>
-    from ..services.llm_service import parse_reference_and_generate, structure_reference_table, LLMRateLimitError
-ImportError: cannot import name 'parse_reference_and_generate' from 'app.services.llm_service' (C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\services\llm_service.py)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\services\llm_service.py", line 284, in structure_reference_table
+    return ollama_result.get("rows", [])
+           ^^^^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
