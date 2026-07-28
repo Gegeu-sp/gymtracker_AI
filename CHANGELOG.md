@@ -4,6 +4,7 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-07-28
 
+- **Correção**: fallback local via Ollama quebrava com `AttributeError: 'list' object has no attribute 'get'` na Extração de Referência (`/extraction/ocr-preview`) — o modelo local (`qwen2.5:3b`) às vezes devolve uma lista JSON solta em vez do objeto `{"rows": [...]}` pedido no prompt (diferente da Groq, que garante um objeto no nível raiz). O helper `_ollama_chat_json` agora normaliza esse formato antes de devolver, corrigido nos 4 pontos que usam o fallback (extração de referência, geração de treino, geração a partir de referência e extração de imagem).
 - **Correção e melhorias no Painel de Performance** (`/analytics/performance`), a partir de feedback de uso real:
   - **Volume Semanal por Grupo Muscular**: as barras já eram coloridas por status (verde/laranja/vermelho), mas a legenda de texto abaixo ficava sempre com a mesma cor neutra. Agora a legenda também fica colorida por status (verde = ok, laranja = sub-treinado, vermelho = overtraining), facilitando ver de relance onde está a performance.
   - **Correção real de bug**: a Tonelagem Total por sessão estava somando também os exercícios de aquecimento (Bloco 1) e volta à calma (Bloco 3), inflando o número — agora conta só o Bloco 2 (sessão principal), igual ao Volume Semanal. O gráfico também virou barras (uma por sessão, com o nome do treino no eixo), em vez de linha — mais fácil de comparar sessão a sessão.

@@ -73,11 +73,16 @@ def _build_rate_limit_message(e: Exception, ollama_error: Optional[str] = None) 
 def _clean_json_content(raw_content: str) -> str:
     return raw_content.replace("```json", "").replace("```", "").strip()
 
-def _ollama_chat_json(system_prompt: str, user_prompt: str, temperature: float, num_predict: int) -> Optional[dict]:
+def _ollama_chat_json(system_prompt: str, user_prompt: str, temperature: float, num_predict: int, wrap_key: Optional[str] = None) -> Optional[dict]:
     """
     Chama o modelo local via Ollama e tenta interpretar a resposta como JSON. Devolve None em
     qualquer falha (pacote não instalado, servidor Ollama não rodando, resposta inválida) —
     nunca deixa uma exceção subir para quem chamou, já que isso é sempre um fallback opcional.
+
+    Diferente da Groq (que usa response_format={"type": "json_object"} e garante um objeto no
+    nível raiz), o modelo local não tem esse enforcement e às vezes devolve uma lista JSON solta
+    em vez do objeto pedido no prompt (ex: [...] em vez de {"rows": [...]}). Quando isso acontece
+    e wrap_key foi informado, reconstruímos o formato esperado em vez de estourar no chamador.
     """
     if not OLLAMA_AVAILABLE:
         return None
@@ -91,7 +96,12 @@ def _ollama_chat_json(system_prompt: str, user_prompt: str, temperature: float, 
             options={"temperature": temperature, "num_predict": num_predict},
         )
         content = _clean_json_content(response["message"]["content"])
-        return json.loads(content)
+        parsed = json.loads(content)
+        if isinstance(parsed, dict):
+            return parsed
+        if isinstance(parsed, list) and wrap_key:
+            return {wrap_key: parsed}
+        raise ValueError(f"Formato de resposta inesperado do Ollama: {type(parsed).__name__}")
     except Exception as e:
         print(f"❌ Fallback Ollama falhou: {e}")
         return None
@@ -238,7 +248,7 @@ def parse_workout_from_text(raw_text: str) -> dict:
             return json.loads(content)
         return {"workouts": []}
     except GroqRateLimitError as e:
-        fallback = _ollama_chat_json(SYSTEM_PROMPT, user_prompt, temperature=0.2, num_predict=4096)
+        fallback = _ollama_chat_json(SYSTEM_PROMPT, user_prompt, temperature=0.2, num_predict=4096, wrap_key="workouts")
         if fallback is not None:
             return fallback
         raise LLMRateLimitError(_build_rate_limit_message(e)) from e
@@ -279,7 +289,7 @@ def structure_reference_table(raw_text: str) -> list:
     """
     user_prompt = f"Texto bruto extraído via OCR:\n\n{raw_text}"
 
-    ollama_result = _ollama_chat_json(STRUCTURE_SYSTEM_PROMPT, user_prompt, temperature=0.1, num_predict=2048)
+    ollama_result = _ollama_chat_json(STRUCTURE_SYSTEM_PROMPT, user_prompt, temperature=0.1, num_predict=2048, wrap_key="rows")
     if ollama_result is not None:
         return ollama_result.get("rows", [])
 
@@ -428,7 +438,7 @@ As INSTRUÇÕES ESPECÍFICAS DO PEDIDO (se houver, ver acima) e o OBJETIVO "{goa
             return json.loads(content)
         return {"workouts": []}
     except GroqRateLimitError as e:
-        fallback = _ollama_chat_json(SYSTEM_PROMPT, anamnese_prompt, temperature=0.4, num_predict=8192)
+        fallback = _ollama_chat_json(SYSTEM_PROMPT, anamnese_prompt, temperature=0.4, num_predict=8192, wrap_key="workouts")
         if fallback is not None:
             return fallback
         raise LLMRateLimitError(_build_rate_limit_message(e)) from e
@@ -487,7 +497,7 @@ def generate_workout(request_data: dict) -> dict:
             return json.loads(content)
         return {"workouts": []}
     except GroqRateLimitError as e:
-        fallback = _ollama_chat_json(SYSTEM_PROMPT, anamnese_prompt, temperature=0.7, num_predict=8192)
+        fallback = _ollama_chat_json(SYSTEM_PROMPT, anamnese_prompt, temperature=0.7, num_predict=8192, wrap_key="workouts")
         if fallback is not None:
             return fallback
         raise LLMRateLimitError(_build_rate_limit_message(e)) from e
