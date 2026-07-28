@@ -117,3 +117,33 @@ def test_structure_reference_table_falls_back_to_groq_when_ollama_unavailable(mo
     result = llm_service.structure_reference_table("outro texto único de referência sem ollama disponível")
 
     assert result == expected_rows
+
+
+def test_structure_reference_table_handles_bare_list_from_ollama(monkeypatch):
+    """
+    Regressão: o Ollama (modelo local pequeno) às vezes devolve uma lista JSON solta em vez do
+    objeto {"rows": [...]} pedido no prompt — sem normalização isso quebrava com
+    AttributeError: 'list' object has no attribute 'get'.
+    """
+    llm_service.OLLAMA_AVAILABLE = True
+    llm_service.structure_reference_table.cache_clear()
+
+    bare_list = [{"exercise": "Supino", "nickname": "", "equipment": "", "accessory": "", "method": ""}]
+    monkeypatch.setattr(llm_service.ollama, "chat", lambda **kwargs: _fake_ollama_response(bare_list))
+
+    result = llm_service.structure_reference_table("texto único de referência com resposta em lista solta")
+
+    assert result == bare_list
+
+
+def test_generate_workout_fallback_handles_bare_list_from_ollama(monkeypatch):
+    """Mesma regressão de formato solto, mas no caminho de fallback por 429 da Groq."""
+    monkeypatch.setattr(llm_service.client.chat.completions, "create", _raise_groq_rate_limit)
+    llm_service.OLLAMA_AVAILABLE = True
+
+    bare_workouts = [{"name": "Treino A", "notes": "", "exercises": []}]
+    monkeypatch.setattr(llm_service.ollama, "chat", lambda **kwargs: _fake_ollama_response(bare_workouts))
+
+    result = llm_service.generate_workout({"goal": "hipertrofia", "days_per_week": 1})
+
+    assert result == {"workouts": bare_workouts}
