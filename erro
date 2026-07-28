@@ -1,0 +1,51 @@
+(venv) PS C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker> uvicorn app.main:app --reload
+INFO:     Will watch for changes in these directories: ['C:\\Users\\MUSCULAÇÃO\\Documents\\Teste\\gym-tracker']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [21500] using WatchFiles
+Using CPU. Note: This module is much faster with a GPU.
+C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\torch\ao\nn\quantized\dynamic\modules\rnn.py:162: UserWarning: torch.quantize_per_tensor, torch.quantize_per_channel and other quantized tensor creation functions that produce tensors with dtype torch.quint8, torch.qint8, and torch.qint32 are deprecated and will be removed in a future PyTorch release. Please see https://github.com/pytorch/pytorch/issues/184982 for more information. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\quantized\Quantizer.cpp:116.)
+  w_ih = torch.quantize_per_tensor(
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 69, in serve
+    await self._serve(sockets)
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\server.py", line 76, in _serve
+    config.load()
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\venv\Lib\site-packages\uvicorn\importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\MUSCULAÇÃO\AppData\Local\Programs\Python\Python311\Lib\importlib\__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\main.py", line 5, in <module>
+    from .routers import workout, image, analytics, live_session, extraction
+  File "C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\routers\extraction.py", line 9, in <module>
+    from ..services.llm_service import parse_reference_and_generate, structure_reference_table, LLMRateLimitError
+ImportError: cannot import name 'parse_reference_and_generate' from 'app.services.llm_service' (C:\Users\MUSCULAÇÃO\Documents\Teste\gym-tracker\app\services\llm_service.py)
