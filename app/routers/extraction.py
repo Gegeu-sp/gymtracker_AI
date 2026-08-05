@@ -1,3 +1,4 @@
+import json
 import os
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
@@ -37,8 +38,9 @@ async def preview_reference_ocr(file: UploadFile = File(...)):
 
 @router.post("/generate", response_model=List[WorkoutOut])
 def generate_from_reference(
-    raw_text: str = Form(...),
+    raw_text: Optional[str] = Form(None),
     filename: Optional[str] = Form(None),
+    references_json: Optional[str] = Form(None),
     professor_name: Optional[str] = Form(None),
     student_name: Optional[str] = Form(None),
     goal: str = Form("hipertrofia"),
@@ -53,15 +55,17 @@ def generate_from_reference(
     db: Session = Depends(get_db),
 ):
     """
-    Gera de 1 a `days_per_week` treinos NOVOS (com exercícios substituídos por equivalentes)
-    usando a tabela de referência (texto de OCR já revisado pelo usuário) como base de volume/
-    estilo/equipamento — NÃO como cópia literal —, combinada com o perfil do professor/objetivo,
-    seguindo a metodologia de 3 blocos. Retorna List[WorkoutOut] — mesmo schema de
-    /workouts/generate, 100% compatível com edição/execução/PDF/live-session já existentes.
-    """
-    if not raw_text or len(raw_text.strip()) < 10:
-        raise HTTPException(status_code=400, detail="Texto de referência vazio ou inválido.")
+    Gera treinos NOVOS (com exercícios substituídos por equivalentes) a partir de referência(s)
+    de OCR já revisada(s) pelo usuário, combinadas com o perfil do professor/objetivo, seguindo a
+    metodologia de 3 blocos. Retorna List[WorkoutOut] — mesmo schema de /workouts/generate,
+    100% compatível com edição/execução/PDF/live-session já existentes.
 
+    Dois modos:
+    - `raw_text` (singular): comportamento de sempre — gera até `days_per_week` treinos a partir
+      de uma única referência.
+    - `references_json` (lista JSON de {"filename", "raw_text"}): uma foto = um treino novo —
+      chama a geração uma vez por referência (sempre 1 treino cada), ignorando `days_per_week`.
+    """
     req = WorkoutGenerationRequest(
         professor_name=professor_name, student_name=student_name, goal=goal, level=level,
         days_per_week=days_per_week, specialization=specialization,
@@ -72,15 +76,44 @@ def generate_from_reference(
     request_dict = req.model_dump()
     request_dict["volume_adjustment"] = volume_adjustment or "manter"
 
-    try:
-        parsed = parse_reference_and_generate(raw_text, request_dict)
-    except LLMRateLimitError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+    if references_json:
+        try:
+            references = json.loads(references_json)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="references_json inválido.")
+        if not isinstance(references, list) or not references:
+            raise HTTPException(status_code=400, detail="Nenhuma referência fornecida.")
+
+        combined_workouts = []
+        for reference in references:
+            ref_raw_text = (reference.get("raw_text") or "").strip()
+            if len(ref_raw_text) < 10:
+                continue
+            ref_request = {**request_dict, "days_per_week": 1}
+            try:
+                ref_parsed = parse_reference_and_generate(ref_raw_text, ref_request)
+            except LLMRateLimitError as e:
+                raise HTTPException(status_code=429, detail=str(e))
+            for day_data in ref_parsed.get("workouts", []):
+                day_data["_source_filename"] = reference.get("filename")
+                combined_workouts.append(day_data)
+
+        if not combined_workouts:
+            raise HTTPException(status_code=400, detail="Nenhum treino gerado a partir das referências.")
+        parsed = {"workouts": combined_workouts}
+    else:
+        if not raw_text or len(raw_text.strip()) < 10:
+            raise HTTPException(status_code=400, detail="Texto de referência vazio ou inválido.")
+        try:
+            parsed = parse_reference_and_generate(raw_text, request_dict)
+        except LLMRateLimitError as e:
+            raise HTTPException(status_code=429, detail=str(e))
 
     prof_name = req.professor_name or "N/A"
-    source_suffix = f" | Fonte: {filename}" if filename else ""
 
     def build_notes(day_data: dict) -> str:
+        source_filename = day_data.get("_source_filename") or filename
+        source_suffix = f" | Fonte: {source_filename}" if source_filename else ""
         base = (f"🖼️ Extração de Referência | Prof. {prof_name} | "
                 f"Objetivo: {req.goal.capitalize()} | Nível: {req.level.capitalize()}{source_suffix}")
         day_notes = day_data.get("notes")
