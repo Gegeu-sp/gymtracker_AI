@@ -36,6 +36,10 @@
         .row-remove-btn { background: none; border: none; color: var(--accent); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; }
         .row-remove-btn:hover { color: #c0392b; }
         .empty-rows-note { padding: 16px; text-align: center; color: var(--text-secondary); font-size: 0.9rem; }
+        .source-divider td { background: var(--bg-dark); color: var(--primary); font-weight: 700; padding: 10px 8px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        .source-divider .row-remove-btn { font-size: 0.8rem; font-weight: 600; margin-left: 10px; }
+        .multi-source-hint { background: #fff8e1; border: 1px solid #ffe0b2; border-left: 5px solid #f57f17; padding: 10px 14px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; color: #6d4c00; display: none; }
+        .multi-source-hint.active { display: block; }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .btn { padding: 16px 32px; background: linear-gradient(135deg, var(--secondary) 0%, var(--primary-light) 100%); border: none; border-radius: 8px; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(27, 152, 224, 0.4); }
@@ -86,15 +90,15 @@
     <div class="container">
         <header>
             <h1>🖼️ Extração de Referência</h1>
-            <p>Suba a foto do modelo de treino que você já usa e a IA remonta de 1 a 6 treinos baseados nele</p>
+            <p>Suba a foto do modelo de treino que você já usa e a IA remonta treinos novos baseados nele — pode subir mais de uma foto, uma de cada vez</p>
         </header>
 
         <div class="card">
             <h2><span class="step-badge">1</span> Enviar Imagem de Referência</h2>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                 <div class="upload-icon">📷</div>
-                <div class="upload-text">Clique ou arraste a foto/print do treino aqui</div>
-                <div class="upload-hint">Formatos: JPG, PNG | Máx: 10MB</div>
+                <div class="upload-text" id="uploadAreaText">Clique ou arraste a foto/print do treino aqui</div>
+                <div class="upload-hint">Formatos: JPG, PNG | Máx: 10MB · Tem mais de um treino? Suba uma foto de cada vez, elas vão se somando na tabela abaixo</div>
             </div>
             <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
             <div class="preview-container" id="previewContainer">
@@ -174,6 +178,7 @@
                         <option value="5">5 Treinos</option>
                         <option value="6">6 Treinos</option>
                     </select>
+                    <div class="multi-source-hint" id="multiSourceHint"></div>
                 </div>
             </div>
             <div class="form-group">
@@ -227,6 +232,8 @@
     <script>
         let selectedFile = null;
         let currentResultsData = [];
+        let sourceCounter = 0;
+        let activeSourceId = null;
 
         fetch('/workouts/students').then(r => r.ok ? r.json() : []).then(students => {
             const list = document.getElementById('studentNamesList');
@@ -261,6 +268,7 @@
 
             const formData = new FormData();
             formData.append('file', selectedFile);
+            const uploadedFilename = selectedFile.name;
 
             try {
                 const response = await fetch('/extraction/ocr-preview', { method: 'POST', body: formData });
@@ -269,9 +277,16 @@
                     throw new Error(err.detail || `Erro ${response.status}`);
                 }
                 const data = await response.json();
-                renderReferenceTable(data.rows && data.rows.length ? data.rows : []);
+                appendReferenceSource(uploadedFilename, data.rows);
                 document.getElementById('reviewSection').classList.remove('disabled-section');
                 document.getElementById('formSection').classList.remove('disabled-section');
+
+                // Reabre a área de upload pra permitir adicionar outra foto sem perder a tabela já preenchida.
+                document.getElementById('previewContainer').classList.remove('active');
+                document.getElementById('uploadArea').style.display = '';
+                document.getElementById('uploadAreaText').textContent = 'Clique ou arraste outra foto/print aqui (opcional)';
+                document.getElementById('fileInput').value = '';
+                selectedFile = null;
             } catch (err) {
                 showUploadError(`Erro ao extrair texto: ${err.message}`);
             } finally {
@@ -280,20 +295,51 @@
             }
         }
 
-        function renderReferenceTable(rows) {
+        function appendReferenceSource(filename, rows) {
+            sourceCounter += 1;
+            const sourceId = `src-${sourceCounter}`;
             const body = document.getElementById('referenceTableBody');
-            body.innerHTML = '';
-            if (!rows.length) {
-                addReferenceRow();
-                return;
-            }
-            rows.forEach(row => addReferenceRow(row));
+
+            const divider = document.createElement('tr');
+            divider.className = 'source-divider';
+            divider.dataset.sourceId = sourceId;
+            const label = filename || `Foto ${sourceCounter}`;
+            divider.innerHTML = `<td colspan="7">📷 <strong>${escapeAttr(label)}</strong><button type="button" class="row-remove-btn" onclick="removeReferenceSource('${sourceId}')" title="Remover esta foto e suas linhas">🗑️ Remover foto</button></td>`;
+            body.appendChild(divider);
+
+            const rowsToAdd = rows && rows.length ? rows : [{ exercise: '', nickname: '', equipment: '', accessory: '', method: '' }];
+            rowsToAdd.forEach(row => addReferenceRow(row, sourceId));
+
+            activeSourceId = sourceId;
+            updateSourcesSummary();
         }
 
-        function addReferenceRow(row) {
+        function removeReferenceSource(sourceId) {
+            document.querySelectorAll(`#referenceTableBody tr[data-source-id="${sourceId}"]`).forEach(tr => tr.remove());
+            if (activeSourceId === sourceId) activeSourceId = null;
+            reindexReferenceTable();
+            updateSourcesSummary();
+        }
+
+        function updateSourcesSummary() {
+            const count = document.querySelectorAll('#referenceTableBody .source-divider').length;
+            const hint = document.getElementById('multiSourceHint');
+            const daysSelect = document.getElementById('days_per_week');
+            if (count > 1) {
+                hint.textContent = `🖼️ ${count} fotos adicionadas — serão gerados ${count} treinos novos, 1 por foto (a opção acima é ignorada nesse caso).`;
+                hint.classList.add('active');
+                daysSelect.disabled = true;
+            } else {
+                hint.classList.remove('active');
+                daysSelect.disabled = false;
+            }
+        }
+
+        function addReferenceRow(row, sourceId) {
             row = row || { exercise: '', nickname: '', equipment: '', accessory: '', method: '' };
             const body = document.getElementById('referenceTableBody');
             const tr = document.createElement('tr');
+            tr.dataset.sourceId = sourceId || activeSourceId || 'manual';
             tr.innerHTML = `
                 <td class="row-index"></td>
                 <td><input type="text" class="ref-exercise" value="${escapeAttr(row.exercise)}" placeholder="Ex: Supino"></td>
@@ -308,8 +354,12 @@
         }
 
         function reindexReferenceTable() {
-            document.querySelectorAll('#referenceTableBody tr').forEach((tr, i) => {
-                tr.querySelector('.row-index').textContent = i + 1;
+            let i = 0;
+            document.querySelectorAll('#referenceTableBody tr').forEach((tr) => {
+                if (tr.classList.contains('source-divider')) return;
+                i += 1;
+                const cell = tr.querySelector('.row-index');
+                if (cell) cell.textContent = i;
             });
         }
 
@@ -317,26 +367,47 @@
             return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         }
 
-        function serializeReferenceTable() {
-            const rows = document.querySelectorAll('#referenceTableBody tr');
-            const lines = ['| Exercício | Apelido | Equipamento | Acessório | Método |'];
-            rows.forEach((tr, i) => {
+        function serializeReferenceTableBySource() {
+            const rows = Array.from(document.querySelectorAll('#referenceTableBody tr'));
+            const groups = {};
+            const counts = {};
+            const order = [];
+
+            rows.forEach((tr) => {
+                if (tr.classList.contains('source-divider')) {
+                    const sourceId = tr.dataset.sourceId;
+                    const nameEl = tr.querySelector('strong');
+                    groups[sourceId] = { filename: nameEl ? nameEl.textContent : '', lines: ['| Exercício | Apelido | Equipamento | Acessório | Método |'] };
+                    counts[sourceId] = 0;
+                    order.push(sourceId);
+                    return;
+                }
                 const exercise = tr.querySelector('.ref-exercise').value.trim();
                 const nickname = tr.querySelector('.ref-nickname').value.trim();
                 const equipment = tr.querySelector('.ref-equipment').value.trim();
                 const accessory = tr.querySelector('.ref-accessory').value.trim();
                 const method = tr.querySelector('.ref-method').value.trim();
                 if (!exercise && !nickname && !equipment && !accessory && !method) return;
-                lines.push(`${i + 1}. ${exercise} | ${nickname} | ${equipment} | ${accessory} | ${method}`);
+
+                const sourceId = tr.dataset.sourceId || '__manual__';
+                if (!groups[sourceId]) {
+                    groups[sourceId] = { filename: '', lines: ['| Exercício | Apelido | Equipamento | Acessório | Método |'] };
+                    counts[sourceId] = 0;
+                    order.push(sourceId);
+                }
+                counts[sourceId] += 1;
+                groups[sourceId].lines.push(`${counts[sourceId]}. ${exercise} | ${nickname} | ${equipment} | ${accessory} | ${method}`);
             });
-            return lines.join('\n');
+
+            return order
+                .map(sourceId => groups[sourceId])
+                .filter(g => g.lines.length > 1)
+                .map(g => ({ filename: g.filename, raw_text: g.lines.join('\n') }));
         }
 
         async function generateFromReference() {
-            const rawText = serializeReferenceTable();
-            const hasAnyExercise = document.querySelectorAll('#referenceTableBody .ref-exercise').length > 0 &&
-                Array.from(document.querySelectorAll('#referenceTableBody .ref-exercise')).some(el => el.value.trim().length > 0);
-            if (!hasAnyExercise) {
+            const sourceGroups = serializeReferenceTableBySource();
+            if (sourceGroups.length === 0) {
                 showGenerateError('Revise a tabela e preencha pelo menos um exercício antes de gerar.');
                 return;
             }
@@ -347,8 +418,13 @@
             document.getElementById('resultsContainer').innerHTML = '';
 
             const formData = new FormData();
-            formData.append('raw_text', rawText);
-            formData.append('filename', selectedFile ? selectedFile.name : '');
+            if (sourceGroups.length > 1) {
+                // 1 foto = 1 treino novo: o backend ignora "days_per_week" nesse caso.
+                formData.append('references_json', JSON.stringify(sourceGroups));
+            } else {
+                formData.append('raw_text', sourceGroups[0].raw_text);
+                formData.append('filename', sourceGroups[0].filename || (selectedFile ? selectedFile.name : ''));
+            }
             formData.append('professor_name', document.getElementById('professor_name').value || '');
             formData.append('student_name', document.getElementById('student_name').value || '');
             formData.append('goal', document.getElementById('goal').value);
