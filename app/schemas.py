@@ -159,6 +159,34 @@ class LiveSessionStateOut(BaseModel):
     finished_at: Optional[datetime] = None
     exercises: List[LiveExerciseStateOut]
 
+class PhysicalAssessmentCreate(BaseModel):
+    student_name: str
+    age_years: Optional[int] = None
+    notes: Optional[str] = None
+
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    flexibility_cm: Optional[float] = None
+    abdominal_reps: Optional[int] = None
+    upper_body_power_m: Optional[float] = None
+    agility_seconds: Optional[float] = None
+    aerobic_test_type: Optional[str] = None  # "vaivem" ou "corrida_9min"
+    aerobic_result: Optional[float] = None
+
+    @field_validator('aerobic_test_type')
+    @classmethod
+    def validate_aerobic_test_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("vaivem", "corrida_9min"):
+            raise ValueError('aerobic_test_type deve ser "vaivem" ou "corrida_9min"')
+        return v
+
+class PhysicalAssessmentOut(PhysicalAssessmentCreate):
+    id: int
+    date: datetime
+
+    class Config:
+        from_attributes = True
+
 class WorkoutOut(BaseModel):
     id: int
     date: datetime

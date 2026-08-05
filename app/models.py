@@ -62,6 +62,28 @@ class WorkoutProgress(Base):
     actual_rpe: Mapped[float] = mapped_column(Float)
     suggested_weight_kg: Mapped[float] = mapped_column(Float)
 
+class PhysicalAssessment(Base):
+    """
+    Avaliação física / bateria de testes (PROESP-BR) para acompanhar a evolução do aluno ao
+    longo do tempo — sem comparação com norma populacional, só evolução própria (mais recente
+    vs anterior). Base para o relatório em app/services/assessment_service.py.
+    """
+    __tablename__ = "physical_assessments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    student_name: Mapped[str] = mapped_column(String, index=True)  # Diferente de Workout: aqui é obrigatório
+    date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    age_years: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    height_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    flexibility_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Sentar e Alcançar
+    abdominal_reps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Resistência abdominal (1 min)
+    upper_body_power_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Arremesso de medicine ball
+    agility_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Shuttle run / teste do quadrado
+    aerobic_test_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # "vaivem" ou "corrida_9min"
+    aerobic_result: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # nível (vaivém) ou metros (corrida)
+
 class WorkoutSet(Base):
     """Série individual registrada durante o Modo Treino ao Vivo."""
     __tablename__ = "workout_sets"

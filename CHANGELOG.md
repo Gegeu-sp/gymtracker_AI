@@ -2,6 +2,12 @@
 
 Histórico de tudo que foi feito no projeto, da atualização mais recente para a mais antiga. Este arquivo é atualizado sempre que uma mudança é enviada ao repositório.
 
+## 2026-08-05
+
+- **Nova funcionalidade**: aba de Avaliação Física (`/assessments/view`), com a bateria de testes de campo PROESP-BR pra adolescentes — composição corporal (peso/altura/IMC calculado), flexibilidade (Sentar e Alcançar), resistência abdominal (1 min), força de membros superiores (arremesso de medicine ball), agilidade (shuttle run) e resistência aeróbia (vaivém 20m ou corrida/caminhada de 9min). Cada avaliação fica ligada a um aluno (mesma tag leve de `student_name` já usada nos treinos) e com histórico completo.
+  - **Relatório de evolução** (`/assessments/report?student_name=...`): compara a avaliação mais recente com a anterior do próprio aluno (sem depender de tabela de normas populacionais), mostrando se cada teste melhorou/manteve/piorou — considerando que agilidade é "menor é melhor" e os demais testes são "maior é melhor" — com gráfico de tendência por teste e botão para baixar o relatório em PDF (mesmo mecanismo já usado pra baixar a ficha de treino), pronto pra compartilhar com os pais do aluno.
+  - Link "🧪 Avaliação Física" adicionado ao rodapé do Dashboard.
+
 ## 2026-07-28
 
 - **Correção**: fallback local via Ollama quebrava com `AttributeError: 'list' object has no attribute 'get'` na Extração de Referência (`/extraction/ocr-preview`) — o modelo local (`qwen2.5:3b`) às vezes devolve uma lista JSON solta em vez do objeto `{"rows": [...]}` pedido no prompt (diferente da Groq, que garante um objeto no nível raiz). O helper `_ollama_chat_json` agora normaliza esse formato antes de devolver, corrigido nos 4 pontos que usam o fallback (extração de referência, geração de treino, geração a partir de referência e extração de imagem).
