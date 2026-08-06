@@ -3,7 +3,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from .database import engine, Base, run_startup_migrations
 from .routers import workout, image, analytics, live_session, extraction, assessment
-from .routers import workout, image, analytics, live_session, extraction, assessment
 
 # Criar tabelas no banco de dados
 Base.metadata.create_all(bind=engine)

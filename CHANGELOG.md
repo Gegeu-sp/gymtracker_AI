@@ -2,6 +2,12 @@
 
 Histórico de tudo que foi feito no projeto, da atualização mais recente para a mais antiga. Este arquivo é atualizado sempre que uma mudança é enviada ao repositório.
 
+## 2026-08-06
+
+- **Consolidação**: a aba "Avaliação Física" agora usa o layout e a bateria de testes FitnessGram (PACER 20m, flexão de braço, curl-up, salto horizontal, flexibilidade back-saver, sprint 30m, agilidade Illinois) enviados pela outra sessão, em vez da versão PROESP-BR anterior — evita ter duas abas de avaliação redundantes fazendo a mesma coisa de formas diferentes. A página nova (`app/static/assessment.html`) já tinha sido enviada com um layout melhor (cards de classificação, recomendações), mas sem nenhum backend implementado (todos os botões davam erro 404) — implementado agora: `POST /assessment/create`, `GET /assessment/list`, `GET /assessment/{id}`.
+  - Classificação por categoria (aeróbio, força, flexibilidade, velocidade, agilidade) continua sendo por **evolução própria do aluno** (mais recente vs. anterior — Melhorou/Manteve/Piorou), não por tabela de normas populacionais, seguindo o mesmo princípio já validado antes — evita embutir uma tabela de percentis por idade/sexo que eu não teria 100% de certeza que está correta.
+  - Corrigido também um import duplicado em `app/main.py` deixado por uma resolução de conflito manual.
+
 ## 2026-08-05
 
 - **Correção**: Extração de Referência não extraía todos os exercícios da imagem nem preservava a ordem em que apareciam. Causa: o OCR (`app/services/ocr_service.py`) juntava o texto na ordem interna que o EasyOCR devolvia (sem nenhum sort espacial) e descartava silenciosamente qualquer trecho com confiança ≤ 0.5. Agora as detecções são reordenadas em ordem de leitura (linha por linha, esquerda→direita, com tolerância pra pequena inclinação da foto) e o limite de confiança caiu pra 0.3 — a etapa seguinte (estruturação por IA) já existe justamente pra corrigir erros óbvios de leitura, então vale mais incluir um texto ligeiramente ruidoso do que perder o exercício inteiro.
