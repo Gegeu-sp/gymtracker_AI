@@ -141,3 +141,23 @@ def test_assessment_page_returns_html(client):
     res = client.get("/assessment")
     assert res.status_code == 200
     assert "Avaliação" in res.text
+
+
+def test_legacy_assessments_view_redirects_to_new_page(client):
+    """
+    Regressão: /assessments/view (versão PROESP-BR antiga) foi removida na consolidação —
+    bookmarks/abas salvas de antes não podem virar 404, precisam redirecionar pra /assessment.
+    """
+    res = client.get("/assessments/view", follow_redirects=False)
+    assert res.status_code in (307, 308)
+    assert res.headers["location"] == "/assessment"
+
+    followed = client.get("/assessments/view", follow_redirects=True)
+    assert followed.status_code == 200
+    assert "Avaliação" in followed.text
+
+
+def test_legacy_assessments_bare_redirects_to_new_page(client):
+    res = client.get("/assessments", follow_redirects=False)
+    assert res.status_code in (307, 308)
+    assert res.headers["location"] == "/assessment"

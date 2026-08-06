@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from .database import engine, Base, run_startup_migrations
 from .routers import workout, image, analytics, live_session, extraction, assessment
 
@@ -40,6 +40,13 @@ def extraction_page():
 @app.get("/assessment")
 def assessment_page():
     return FileResponse("app/static/assessment.html")
+
+# Redireciona a rota antiga (versão PROESP-BR, removida na consolidação da Avaliação Física)
+# para a nova, pra não deixar bookmarks/abas salvas de antes darem 404.
+@app.get("/assessments/view")
+@app.get("/assessments")
+def assessment_page_redirect():
+    return RedirectResponse(url="/assessment")
 
 # Rota de verificação de saúde do sistema
 @app.get("/health")
