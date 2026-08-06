@@ -4,6 +4,7 @@ Histórico de tudo que foi feito no projeto, da atualização mais recente para 
 
 ## 2026-08-06
 
+- **Correção**: `/assessments/view` e `/assessments` (rotas antigas da versão PROESP-BR, removidas na consolidação da Avaliação Física) agora redirecionam para `/assessment` em vez de dar 404 — protege bookmarks/abas salvas de antes da mudança.
 - **Consolidação**: a aba "Avaliação Física" agora usa o layout e a bateria de testes FitnessGram (PACER 20m, flexão de braço, curl-up, salto horizontal, flexibilidade back-saver, sprint 30m, agilidade Illinois) enviados pela outra sessão, em vez da versão PROESP-BR anterior — evita ter duas abas de avaliação redundantes fazendo a mesma coisa de formas diferentes. A página nova (`app/static/assessment.html`) já tinha sido enviada com um layout melhor (cards de classificação, recomendações), mas sem nenhum backend implementado (todos os botões davam erro 404) — implementado agora: `POST /assessment/create`, `GET /assessment/list`, `GET /assessment/{id}`.
   - Classificação por categoria (aeróbio, força, flexibilidade, velocidade, agilidade) continua sendo por **evolução própria do aluno** (mais recente vs. anterior — Melhorou/Manteve/Piorou), não por tabela de normas populacionais, seguindo o mesmo princípio já validado antes — evita embutir uma tabela de percentis por idade/sexo que eu não teria 100% de certeza que está correta.
   - Corrigido também um import duplicado em `app/main.py` deixado por uma resolução de conflito manual.
