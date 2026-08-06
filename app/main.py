@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse  # <-- CORREÇÃO AQUI (era FileResponse, não File)
+from fastapi.responses import FileResponse
 from .database import engine, Base, run_startup_migrations
+from .routers import workout, image, analytics, live_session, extraction, assessment
 from .routers import workout, image, analytics, live_session, extraction, assessment
 
 # Criar tabelas no banco de dados
@@ -31,10 +32,15 @@ app.include_router(assessment.router)
 def dashboard():
     return FileResponse("app/static/dashboard.html")
 
-# Página de Extração de Referência (upload de imagem -> OCR -> IA remonta 1-6 treinos)
+# Página de Extração de Referência
 @app.get("/extraction")
 def extraction_page():
     return FileResponse("app/static/extraction.html")
+
+# Página de Avaliação Adolescente <-- NOVO
+@app.get("/assessment")
+def assessment_page():
+    return FileResponse("app/static/assessment.html")
 
 # Rota de verificação de saúde do sistema
 @app.get("/health")

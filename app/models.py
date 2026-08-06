@@ -97,3 +97,42 @@ class WorkoutSet(Base):
     rest_seconds_actual: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     exercise: Mapped["Exercise"] = relationship("Exercise", back_populates="logged_sets")
+
+# ==============================================================================
+# NOVO: Modelo de Avaliação Adolescente (Adicionado com segurança)
+# ==============================================================================
+class AdolescentAssessment(Base):
+    __tablename__ = "adolescent_assessments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    student_name = Column(String, nullable=False)
+    sex = Column(String, nullable=False)
+    age = Column(Integer, nullable=False)
+    assessment_date = Column(DateTime, default=datetime.utcnow)
+    
+    weight_kg = Column(Float, nullable=True)
+    height_m = Column(Float, nullable=True)
+    bmi = Column(Float, nullable=True)
+    bmi_percentile = Column(Float, nullable=True)
+    waist_circumference_cm = Column(Float, nullable=True)
+    
+    pacer_laps = Column(Integer, nullable=True)
+    vo2max_estimated = Column(Float, nullable=True)
+    
+    push_ups = Column(Integer, nullable=True)
+    curl_ups = Column(Integer, nullable=True)
+    standing_long_jump_cm = Column(Float, nullable=True)
+    
+    flexibility_right_cm = Column(Float, nullable=True)
+    flexibility_left_cm = Column(Float, nullable=True)
+    
+    sprint_30m_seconds = Column(Float, nullable=True)
+    illinois_agility_seconds = Column(Float, nullable=True)
+    
+    aerobic_classification = Column(String, nullable=True)
+    strength_classification = Column(String, nullable=True)
+    flexibility_classification = Column(String, nullable=True)
+    speed_classification = Column(String, nullable=True)
+    agility_classification = Column(String, nullable=True)
+    
+    notes = Column(Text, nullable=True)
