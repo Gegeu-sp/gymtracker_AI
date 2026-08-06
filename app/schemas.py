@@ -159,33 +159,37 @@ class LiveSessionStateOut(BaseModel):
     finished_at: Optional[datetime] = None
     exercises: List[LiveExerciseStateOut]
 
-class PhysicalAssessmentCreate(BaseModel):
+class AdolescentAssessmentCreate(BaseModel):
     student_name: str
-    age_years: Optional[int] = None
+    sex: str
+    age: int
     notes: Optional[str] = None
 
     weight_kg: Optional[float] = None
-    height_cm: Optional[float] = None
-    flexibility_cm: Optional[float] = None
-    abdominal_reps: Optional[int] = None
-    upper_body_power_m: Optional[float] = None
-    agility_seconds: Optional[float] = None
-    aerobic_test_type: Optional[str] = None  # "vaivem" ou "corrida_9min"
-    aerobic_result: Optional[float] = None
+    height_m: Optional[float] = None
+    waist_circumference_cm: Optional[float] = None
+    pacer_laps: Optional[int] = None
+    push_ups: Optional[int] = None
+    curl_ups: Optional[int] = None
+    standing_long_jump_cm: Optional[float] = None
+    flexibility_right_cm: Optional[float] = None
+    flexibility_left_cm: Optional[float] = None
+    sprint_30m_seconds: Optional[float] = None
+    illinois_agility_seconds: Optional[float] = None
 
-    @field_validator('aerobic_test_type')
+    @field_validator('sex')
     @classmethod
-    def validate_aerobic_test_type(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ("vaivem", "corrida_9min"):
-            raise ValueError('aerobic_test_type deve ser "vaivem" ou "corrida_9min"')
+    def validate_sex(cls, v: str) -> str:
+        if v not in ("M", "F"):
+            raise ValueError('sex deve ser "M" ou "F"')
         return v
 
-class PhysicalAssessmentOut(PhysicalAssessmentCreate):
-    id: int
-    date: datetime
-
-    class Config:
-        from_attributes = True
+    @field_validator('age')
+    @classmethod
+    def validate_age(cls, v: int) -> int:
+        if not (10 <= v <= 18):
+            raise ValueError('age deve estar entre 10 e 18 anos')
+        return v
 
 class WorkoutOut(BaseModel):
     id: int
